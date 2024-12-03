@@ -3,7 +3,6 @@ werkzeug
 opencv-python-headless
 pytesseract
 pdf2image
-qrcode
 pyzbar
 Pillow
 Flask-Cors

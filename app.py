@@ -1,29 +1,13 @@
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
-import cv2
-import pytesseract
-import pdf2image
-import qrcode
-from pyzbar.pyzbar import decode
 from flask_cors import CORS
-from PIL import Image
 from pymongo import MongoClient, errors
-from dateutil.parser import isoparse
 from bson import ObjectId
- 
-
- 
-
 from gemini_output import gemini_output
-
-#####
-
-1
-
-
 import pymongo
 from pymongo.errors import ServerSelectionTimeoutError
+from bson.objectid import ObjectId
 
 # DB Connection
 try:
@@ -104,7 +88,7 @@ def get_all_invoice():
 def fn():
     return jsonify("READY")
 
-from bson.objectid import ObjectId
+
 
 @app.route('/api/invoice', methods=['POST'])
 def add_or_update_invoice():
@@ -196,11 +180,7 @@ def test():
     system_prompt = """
     You are a specialist in understanding and extracting structured data from invoices.
     Ensure that:
-    # - If the invoice title contains the supplier name and address, extract this information and map it to the "supplier" field in the output.
-    # - Ensure that the "billing to" and "sold to" section maps exclusively to the buyer details, and it does not overwrite supplier information.
-    - Product names with prefixes or suffixes (e.g., 'iPhone 16', '16 iPhone', 'iPhone series 16') are grouped under a core term (e.g., "iPhone 16") to maintain consistency.
     - Synonymous words (e.g., 'qty' and 'quantity', 'items' and 'products') should be interpreted as the same term and mapped to the same column in the output.
-    - Remove duplicate product entries and maintain a count of the quantity for each product.
     - All extracted text values are converted to lowercase for uniformity.
     - The output is structured in JSON format with clear and appropriate JSON tags for each field based on the image content.
     - Please process the document and identify if it is a multi-page invoice. If the invoice spans multiple pages, continue processing each page as part of the same invoice, as long as the invoice number or header information matches. If a page contains a different invoice number or structure, treat it as a new invoice.
