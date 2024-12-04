@@ -186,7 +186,23 @@ def test():
     - Please process the document and identify if it is a multi-page invoice. If the invoice spans multiple pages, continue processing each page as part of the same invoice, as long as the invoice number or header information matches. If a page contains a different invoice number or structure, treat it as a new invoice.
     - For single or multi-page invoices, extract the text in an object format. If the input consists of multiple pages, merge the content and output in a single object structure, not in an array format. Each field should be represented as key-value pairs in one object.
     - Ensured Inclusion of the "invoice" Key: Explicitly instructed to always include the "invoice" key in the JSON output, regardless of multi-page processing.
-
+    Additionally, perform the following calculations when extracting invoice data:
+    
+    - **Gross Amount**: If a gross amount is not provided, calculate it as the sum of individual product prices multiplied by their quantities.
+    - **Discount**: If a discount is not provided, set the discount to `0`. If a discount is provided, calculate it based on the formula: Gross Amount - (Net Amount), where Net Amount is the sum of all product prices before tax or discount.
+    - **Net Amount**: If a net amount is not provided, calculate it as: Gross Amount - Discount.
+    - **Tax Percentage**: If the tax percentage is not provided, calculate it using the formula: (Tax Amount / Net Amount) * 100. Use the Tax Amount and Net Amount fields if they are available.
+    - **Tax Amount**: If a tax amount is not provided, calculate it as: Net Amount * (Tax Percentage / 100).
+    - **Total Amount**: If a total amount is not provided, calculate it as: Net Amount + Tax Amount (or Gross Amount + Tax Amount if applicable).
+    - **Due Date**: make the due date field as 01/01/2025.
+    - If any of the above fields (Gross Amount, Discount, Net Amount, Tax Percentage, Tax Amount, Total Amount or Due date) are missing in the invoice, calculate them using the available values or based on the other available data.
+ 
+    **Batch Number and Expiry Date**:
+    - If a batch number and expiry date are present in the invoice, extract them and place them in the corresponding columns.
+    - If they are not present, set their values as `null`.
+ 
+    Ensure that the calculated values and extracted fields are consistent and accurate based on the fields available in the invoice.
+    
     Example:
     the output should be  given format
     invoice = {
@@ -200,21 +216,25 @@ def test():
         Due_Date: ''
     },
     items : [{
-        product_id : '',
+        product_name : '',
         name : '', 
         HSN_SAC : '',
         Quantity :'',
-        tax : '',
         Rate :'' ,
-        amount:'',
+        Gross : ,
+        Discount : ,
+        Net_amount : ,
+        Tax : ,
+        Tax_amount
+        Total_amount:'',
     }],
     footer : {
         CGST :'',
         SGST :'',
-        Total_Tax_amount :'', 
-        Discounts:'' ,
-        Round_Off :'',
-        Total_Amount :'',
+        batch_no :'', 
+        expiry_date:'' ,
+        payment_terms :'',
+        # Total_Amount :'',
     }    ,  
     bank_details, : {
         Bank : '' ,
