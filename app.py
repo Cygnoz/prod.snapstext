@@ -2,58 +2,20 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
 from flask_cors import CORS
-from pymongo import MongoClient, errors
-from bson import ObjectId
+# from pymongo import MongoClient, errors
+# from bson import ObjectId
 from gemini_output import gemini_output
-import pymongo
-from pymongo.errors import ServerSelectionTimeoutError
-from bson.objectid import ObjectId
-
-# DB Connection
-try:
-    client = MongoClient("mongodb+srv://pranavocr:rPMmg2osIHCE2h33@cluster0.38hav.mongodb.net/")
-    db = client["OCR_DB"]
-    
-    print("Connected to MongoDB!")
-except ServerSelectionTimeoutError as e:
-    print("Connection failed:", e)
-
-# Schema validation for the "invoice" collection
+# import pymongo
+# from pymongo.errors import ServerSelectionTimeoutError
+# from bson.objectid import ObjectId
+import json
+import re
+from datetime import datetime
+from config import Config
+from token_utils import TokenService
+import jwt 
 
 
-schema = {
-    "validator": {
-        "$jsonSchema": {
-            "bsonType": "object",
-            "properties": {
-                "company_name": {
-                    "bsonType": "string"
-                },
-                "header": {
-                    "bsonType": "object"
-                },
-                "items": {
-                    "bsonType": "array"
-                },
-                "footer": {
-                    "bsonType": "object"
-                },
-                "bank_details": {
-                    "bsonType": "object"
-                }
-            }
-        }
-    }
-}
-
-# Create the 'invoice' collection with validation (ensure this runs only once)
-try:
-    db.create_collection("invoice", **schema)
-    print("Collection 'Invoice' created with schema validation.")
-except errors.CollectionInvalid:
-    print("Collection 'Invoice' already exists.")    
-################
-    
 
 # Initialize Flask app
 
@@ -61,195 +23,240 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["*"], "methods": ["GET", "POST", "PUT", "DELETE"]}})
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
+# Apply configuration
+app.config.from_object(Config)
+Config.init_app(app)
+
+
 # Ensure upload folder exists
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 
-@app.route('/api/invoices', methods=['GET'])
-def get_all_invoice():
-    try:
-        print("Fetching documents from MongoDB...")
-        
-        # Fetch all invoices from the collection
-        invoices = db.invoice.find()
-        
-        # Convert the cursor to a list of documents and convert ObjectId to string
-        invoice_list = []
-        for invoice in invoices:
-            invoice['_id'] = str(invoice['_id'])  # Convert ObjectId to string
-            invoice_list.append(invoice)
-                
-        return jsonify({'invoices': invoice_list}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/', methods=['GET'])
 def fn():
-    return jsonify("READY")
+    return jsonify("OCR is running")
 
 
-
-@app.route('/api/invoice', methods=['POST'])
-def add_or_update_invoice():
-    try:
-        # Extract data from the request
-        invoice_data = request.get_json()
-        print("Invoice Data Received:", invoice_data)
-        
-        # Check if '_id' exists in the invoice data
-        if '_id' in invoice_data:
-            try:
-                invoice_data_id = ObjectId(invoice_data['_id']) 
-                # Convert `_id` to ObjectId if necessary 
-                print("Id present in invoice data", type(invoice_data_id), invoice_data_id)
-                # Remove `_id` from `invoice_data` to avoid updating it
-                del invoice_data['_id']
-            except:
-                pass  # Leave `_id` as-is if it isn't a valid ObjectId format
-
-            # Perform upsert based on '_id' field
-            print("Invoice Data Received:", invoice_data)
-            result = db.invoice.find_one_and_update(
-                {"_id": invoice_data_id},      # Query by '_id'
-                {"$set": invoice_data},        # Replace document fields with invoice_data (without `_id`)
-                upsert=True,                   # Insert if not found
-                return_document=pymongo.ReturnDocument.AFTER  # Return updated document  
-            )
-            print("Result:", result)
-            message = "Invoice created or updated successfully!"
-
-            # Convert the `_id` in the result to string if it's present
-            if result and '_id' in result: 
-                result['_id'] = str(result['_id'])
-
-            updated_data = result  # This will hold the updated document
-        else:
-            # If `_id` is not present, insert a new document
-            print("Id not present in invoice data")
-            invoice_number = invoice_data['header']['invoice_no']
-
-# Print the extracted invoice number
-            print("Invoice Number:", invoice_number)            
-            # print(db.invoice.find_one(  {"": invoice_data_id}))
-
-            result = db.invoice.insert_one(invoice_data) 
-            message = "Invoice created successfully!"
-            updated_data = {"_id": str(result.inserted_id)}  # Return only the inserted ID
-
-        return jsonify({"message": message, "updated_data": updated_data}), 200 
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# Generate Token Endpoint (Optional, but recommended)
+@app.route('/api/generate-token', methods=['POST'])
+def generate_token():
+    """
+    Endpoint to generate a token for an organization
+    """
+    data = request.get_json()
+    organization_id = data.get('organizationId')
     
-@app.route('/api/invoice/<invoice_id>', methods=['DELETE'])   
-def delete_invoice(invoice_id):
-    try:
-        # Convert the provided `invoice_id` to an ObjectId 
-        invoice_object_id = ObjectId(invoice_id)
-        
-        # Attempt to delete the document by `_id`
-        result = db.invoice.delete_one({"_id": invoice_object_id}) 
-         
-        if result.deleted_count == 1:
-            message = "Invoice deleted successfully!"   
-            status = 200  
-        else:
-            message = "Invoice not found."
-            status = 404
-
-        return jsonify({"message": message}), status
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if not organization_id:
+        return jsonify({"error": "Organization ID is required"}), 400
     
+    # Generate token
+    token = TokenService.generate_token(data)
+    
+    return jsonify({
+        "message": "Token generated successfully",
+        "token": token
+    }), 200
+
+
 
 @app.route('/api/upload', methods=['POST'])
-def test():
+@TokenService.verify_token
+def upload_purchase_bill():
+    # Validate file upload
     file = request.files.get('file')
     if not file:
         return jsonify({"error": "No file uploaded"}), 400
+    
+    # Secure and save the file
     filename = secure_filename(file.filename)
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
 
-
+    # Get organization ID from request
     organization_id = request.form.get("organization_id")
-    print(organization_id)
-    # System and user prompts
+    
+    # Comprehensive system prompt
     system_prompt = """
-    You are a specialist in understanding and extracting structured data from invoices.
-    Ensure that:
-    - Synonymous words (e.g., 'qty' and 'quantity', 'items' and 'products') should be interpreted as the same term and mapped to the same column in the output.
-    - All extracted text values are converted to lowercase for uniformity.
-    - The output is structured in JSON format with clear and appropriate JSON tags for each field based on the image content.
-    - Please process the document and identify if it is a multi-page invoice. If the invoice spans multiple pages, continue processing each page as part of the same invoice, as long as the invoice number or header information matches. If a page contains a different invoice number or structure, treat it as a new invoice.
-    - For single or multi-page invoices, extract the text in an object format. If the input consists of multiple pages, merge the content and output in a single object structure, not in an array format. Each field should be represented as key-value pairs in one object.
-    - Ensured Inclusion of the "invoice" Key: Explicitly instructed to always include the "invoice" key in the JSON output, regardless of multi-page processing.
-    Additionally, perform the following calculations when extracting invoice data:
-    
-    - **Gross Amount**: If a gross amount is not provided, calculate it as the sum of individual product prices multiplied by their quantities.
-    - **Discount**: If a discount is not provided, set the discount to `0`. If a discount is provided, calculate it based on the formula: Gross Amount - (Net Amount), where Net Amount is the sum of all product prices before tax or discount.
-    - **Net Amount**: If a net amount is not provided, calculate it as: Gross Amount - Discount.
-    - **Tax Percentage**: If the tax percentage is not provided, calculate it using the formula: (Tax Amount / Net Amount) * 100. Use the Tax Amount and Net Amount fields if they are available.
-    - **Tax Amount**: If a tax amount is not provided, calculate it as: Net Amount * (Tax Percentage / 100).
-    - **Total Amount**: If a total amount is not provided, calculate it as: Net Amount + Tax Amount (or Gross Amount + Tax Amount if applicable).
-    - **Due Date**: make the due date field as 01/01/2025.
-    - If any of the above fields (Gross Amount, Discount, Net Amount, Tax Percentage, Tax Amount, Total Amount or Due date) are missing in the invoice, calculate them using the available values or based on the other available data.
- 
-    **Batch Number and Expiry Date**:
-    - If a batch number and expiry date are present in the invoice, extract them and place them in the corresponding columns.
-    - If they are not present, set their values as `null`.
- 
-    Ensure that the calculated values and extracted fields are consistent and accurate based on the fields available in the invoice.
-    
-    Example:
-    the output should be  given format
-    invoice = {
-    company_name : 'ABC' ,
-    header : {
-        invoice_no : '',
-        Supplier_Name : '',
-        Supplier_address : '',
-        Contact_Number : '',
-        Invoice_Date : '',
-        Due_Date: ''
-    },
-    items : [{
-        product_name : '',
-        name : '', 
-        HSN_SAC : '',
-        Quantity :'',
-        Rate :'' ,
-        Gross : ,
-        Discount : ,
-        Net_amount : ,
-        Tax : ,
-        Tax_amount
-        Total_amount:'',
-    }],
-    footer : {
-        CGST :'',
-        SGST :'',
-        batch_no :'', 
-        expiry_date:'' ,
-        payment_terms :'',
-        # Total_Amount :'',
-    }    ,  
-    bank_details, : {
-        Bank : '' ,
-        Account_no :'',
-        IFSC_code :''
-};    
-  if value is not there then  fill null
-    
+    You are an expert at extracting structured data from purchase invoices.
+    Follow these strict guidelines:
+    1. Return a VALID JSON response
+    2. Use lowercase for all string values
+    3. Use null for unknown/missing values
+    4. Ensure numeric fields are numbers
+    5. Include all requested fields even if empty
+
+    Required JSON Structure:
+    {
+        "supplier_name": "string",
+        "bill_number": "string",
+        "bill_date": "string",
+        "due_date": "string",
+        "supplier_id": "string",
+        "supplier_country": "string",
+        "supplier_state": "string",
+        "purchase_order_number": "string",
+        "purchase_order_date": "string",
+        "source_of_supply": "string",
+        "destination_of_supply": "string",
+        "payment_terms": "string", 
+        "payment_mode": "string",
+        "paid_status": "string",
+        "subtotal": 0.0,
+        "total_tax_amount": 0.0,
+        "grand_total": 0.0,
+        "paid_amount": 0.0,
+        "balance_amount": 0.0,
+        "items": [
+            {
+                "item_id": "string",
+                "item_name": "string", 
+                "quantity": 0.0,
+                "cost_price": 0.0,
+                "tax_rate": 0.0,
+                "item_discount": 0.0,
+                "discount_type": "string",
+                "sgst_rate": 0.0,
+                "cgst_rate": 0.0,
+                "igst_rate": 0.0,
+                "vat_rate": 0.0,
+                "sgst_amount": 0.0,
+                "cgst_amount": 0.0,
+                "igst_amount": 0.0,
+                "vat_amount": 0.0
+            }
+        ]
+    }
     """
 
-    user_prompt = "Convert Invoice data into JSON format with appropriate JSON tags as required for the data in the image."
+    user_prompt = "Extract and structure the invoice data into a comprehensive JSON format for a purchase bill."
 
     # Get the output from the Gemini model
-    output = gemini_output(filepath, system_prompt, user_prompt)
-    return output
+    try:
+        output = gemini_output(filepath, system_prompt, user_prompt)
+        
+        # Debug: Print raw output
+        print("Raw Gemini Output:", output)
+        
+        # Multiple JSON parsing attempts
+        invoice_data = parse_json_safely(output)
+        
+        # Map extracted data to Mongoose schema
+        purchase_bill_data = {
+            "organizationId": organization_id,
+            "supplierId": invoice_data.get('supplier_id', ''),
+            "supplierDisplayName": invoice_data.get('supplier_name', ''),
+            
+            # Supplier Billing Address
+            "supplierBillingCountry": invoice_data.get('supplier_country', ''),
+            "supplierBillingState": invoice_data.get('supplier_state', ''),
+            
+            # Bill Details
+            "billNumber": invoice_data.get('bill_number', ''),
+            "billDate": invoice_data.get('bill_date', ''),
+            "dueDate": invoice_data.get('due_date', ''),
+            
+            # Purchase Order Details
+            "orderNumber": invoice_data.get('purchase_order_number', ''),
+            "puchaseOrderDate": invoice_data.get('purchase_order_date', ''),
+            
+            # Supply Information
+            "sourceOfSupply": invoice_data.get('source_of_supply', ''),
+            "destinationOfSupply": invoice_data.get('destination_of_supply', ''),
+            
+            # Payment Details
+            "paymentTerms": invoice_data.get('payment_terms', ''),
+            "paymentMode": invoice_data.get('payment_mode', ''),
+            "paidStatus": invoice_data.get('paid_status', ''),
+            
+            # Items
+            "items": [
+                {
+                    "itemId": item.get('item_id', ''),
+                    "itemName": item.get('item_name', ''),
+                    "itemQuantity": item.get('quantity', 0),
+                    "itemCostPrice": item.get('cost_price', 0),
+                    "itemTax": item.get('tax_rate', 0),
+                    "itemDiscount": item.get('item_discount', 0),
+                    "itemDiscountType": item.get('discount_type', ''),
+                    "itemSgst": item.get('sgst_rate', 0),
+                    "itemCgst": item.get('cgst_rate', 0),
+                    "itemIgst": item.get('igst_rate', 0),
+                    "itemVat": item.get('vat_rate', 0),
+                    "itemSgstAmount": item.get('sgst_amount', 0),
+                    "itemCgstAmount": item.get('cgst_amount', 0),
+                    "itemIgstAmount": item.get('igst_amount', 0),
+                    "itemVatAmount": item.get('vat_amount', 0),
+                } for item in invoice_data.get('items', [])
+            ],
+            
+            # Financial Summary
+            "subTotal": invoice_data.get('subtotal', 0),
+            "totalItem": len(invoice_data.get('items', [])),
+            "sgst": invoice_data.get('total_sgst', 0),
+            "cgst": invoice_data.get('total_cgst', 0),
+            "igst": invoice_data.get('total_igst', 0),
+            "vat": invoice_data.get('total_vat', 0),
+            "transactionDiscount": invoice_data.get('total_discount', 0),
+            "transactionDiscountType": invoice_data.get('discount_type', ''),
+            "totalTaxAmount": invoice_data.get('total_tax_amount', 0),
+            "grandTotal": invoice_data.get('grand_total', 0),
+            "paidAmount": invoice_data.get('paid_amount', 0),
+            "balanceAmount": invoice_data.get('balance_amount', 0),
+            
+            # Additional Details
+            "createdDate": datetime.now().isoformat()
+        }
+        
+        # Save to MongoDB
+        # Assuming PurchaseBill is a MongoDB collection
+        # purchase_bill_collection = db['purchase_bill']
+        # purchase_bill_id = purchase_bill_collection.insert_one(purchase_bill_data).inserted_id
+        return jsonify({
+            "message": "Purchase bill uploaded successfully",
+            "purchase_bill_data": purchase_bill_data
+        }), 200
+    
+    except Exception as e:
+        # Detailed error logging
+        print(f"Error processing purchase bill: {str(e)}")
+        return jsonify({
+            "error": "Failed to process purchase bill",
+            "details": str(e),
+            "raw_output": output  # Include raw output for debugging
+        }), 500
+
+        
+def parse_json_safely(output):
+    print("Raw output received:", output) 
+    """
+    Attempt multiple methods to parse JSON
+    """
+    # List of parsing attempts
+    parsing_methods = [
+        # 1. Extract JSON from markdown code block and parse
+        lambda x: json.loads(re.search(r'```json\n(.*?)```', x, re.DOTALL).group(1)),
+        
+        # 2. Direct parsing
+        lambda x: json.loads(x),
+        
+        # 3. Stripped parsing
+        lambda x: json.loads(x.strip()),
+        
+        # 4. Extract JSON between first { and last }
+        lambda x: json.loads(re.search(r'\{.*\}', x, re.DOTALL).group(0))
+    ]
+    
+    # Try each parsing method
+    for method in parsing_methods:
+        try:
+            return method(output)
+        except Exception as e:
+            print(f"Parsing method failed: {str(e)}")
+    
+    # If all parsing fails
+    raise ValueError("Cannot parse JSON from output")
 
 
 # Run the Flask app
