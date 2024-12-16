@@ -7,8 +7,8 @@ pipeline {
         IMAGE_NAME = 'dev/ocr'
         AWS_CREDENTIALS_ID = '2157424a-b8a7-45c0-90c2-bc0d407f6cea'
         AWS_ACCOUNT_ID = '654654462146' // Add your AWS account ID here
-        SONARQUBE_PROJECT_KEY = 'dev ocr'
-        SONARQUBE_SCANNER_CREDENTIALS_ID = 'f8b33d4d-6a27-47ab-a8a3-3713806e5fc0' // Jenkins credentials ID for SonarQube token
+        SONARQUBE_PROJECT_KEY = 'dev-ocr'
+        SONARQUBE_SCANNER_CREDENTIALS_ID = 'e392ef9d-633d-4ba4-8fbb-aafbc6981c0f' // Jenkins credentials ID for SonarQube token
         ECS_CLUSTER_NAME = 'dev-billbizz' // Replace with your ECS cluster name
         ECS_SERVICE_NAME = 'dev-ocr' // Replace with your ECS service name
         ECS_TASK_DEFINITION_NAME = 'dev-ocr' // Replace with your ECS task definition name
