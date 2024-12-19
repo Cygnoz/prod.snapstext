@@ -16,7 +16,7 @@ from token_utils import TokenService
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 import logging
-from invoiceController import add_invoice, get_all_invoices,view_invoice
+from invoiceController import add_invoice, get_all_invoices,view_invoice,delete_invoice,update_status
 from prompt import INVOICE_SYSTEM_PROMPT
 
 
@@ -219,7 +219,23 @@ def view_invoice_api(invoice_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-    
+@app.route('/api/delete_invoice/<invoice_id>', methods=['DELETE'])
+def delete_invoice_api(invoice_id):
+    try:
+        result = delete_invoice(invoice_id)
+        return jsonify(result), result[1]
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/update_status/<invoice_id>', methods=['PUT'])
+def update_status_api(invoice_id):
+    try:
+        result = update_status(invoice_id)
+        return jsonify(result), result[1]
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 def parse_json_safely(output):
     print("Raw output received:", output) 
     """

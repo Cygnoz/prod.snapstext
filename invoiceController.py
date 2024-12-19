@@ -105,14 +105,57 @@ def get_all_invoices(organization_id):
     # Find all documents matching the organization_id
     query = {'organization_id': organization_id}
     
+    # Only fetch required fields
+    projection = {
+        '_id': 1,
+        'invoice.header.supplier_name': 1,
+        'invoice.header.invoice_no': 1,
+        'invoice.header.invoice_date': 1,
+        'status': 1,
+        'review_date': 1
+    }
     # Execute MongoDB query and convert cursor to list
-    invoices = list(invoice_collection.find(query))
-    
+    # invoices = list(invoice_collection.find(query))
+    invoices = invoice_collection.find(query, projection)
+
     # Convert ObjectId to string for each invoice
-    for invoice in invoices:
-        invoice['_id'] = str(invoice['_id'])
+    # for invoice in invoices:
+    #     invoice['_id'] = str(invoice['_id'])
     
-    return invoices
+    # return invoices
+    return [{
+        'supplier_name': doc['invoice']['header']['supplier_name'],
+        'invoice_no': doc['invoice']['header']['invoice_no'],
+        'bill_date': doc['invoice']['header']['invoice_date'],
+        'status': doc['status'],
+        'review_date': doc.get('review_date', None),
+        '_id': str(doc['_id'])
+    } for doc in invoices]
+
+def delete_invoice(invoice_id):
+    try:
+        result = invoice_collection.delete_one({"_id": ObjectId(invoice_id)})
+        if result.deleted_count == 1:
+            return {"message": "Invoice deleted successfully"}, 200
+        else:
+            return {"error": "Invoice not found"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+def update_status(invoice_id):
+    try:
+        result = invoice_collection.update_one(
+            {"_id": ObjectId(invoice_id)},
+            {"$set": {"status": "Reviewed",
+                        "review_date": date.today().strftime("%d-%m-%Y")}}
+        )
+        if result.modified_count == 1:
+            return {"message": "Invoice status updated successfully"}, 200
+        else:
+            return {"error": "Invoice not found"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
+          
 
 if __name__ == '__main__':
     app.run(debug=True)
