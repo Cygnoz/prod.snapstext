@@ -4,7 +4,7 @@ import mimetypes
 
 
 # Replace with your actual API key
-GOOGLE_API_KEY = "AIzaSyDvaqJhvcbC8rXkbGA8-ToijBFcifQmINk"
+GOOGLE_API_KEY = "AIzaSyBMwuihIx3SHAnrLkIM4A3xs7IcbQ1jbgY"
 
 # Configure API key
 genai.configure(api_key=GOOGLE_API_KEY)

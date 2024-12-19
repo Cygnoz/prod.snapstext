@@ -1,20 +1,23 @@
 from flask import Flask, request, jsonify
-from werkzeug.utils import secure_filename
 import os
 from flask_cors import CORS
-# from pymongo import MongoClient, errors
-# from bson import ObjectId
+from pymongo import MongoClient, errors
+from bson import ObjectId
 from gemini_output import gemini_output
-# import pymongo
-# from pymongo.errors import ServerSelectionTimeoutError
-# from bson.objectid import ObjectId
 import json
 import re
 from datetime import datetime
+import tempfile
+# from io import BytesIO
+import base64
 from config import Config
 from token_utils import TokenService
-import jwt 
-
+# from json import JSONEncoder
+from dotenv import load_dotenv
+from urllib.parse import quote_plus
+import logging
+from invoiceController import add_invoice, get_all_invoices,view_invoice
+from prompt import INVOICE_SYSTEM_PROMPT
 
 
 # Initialize Flask app
@@ -33,13 +36,32 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 
+load_dotenv()
+
+username = os.getenv("MONGODB_USERNAME")
+password = os.getenv("MONGODB_PASSWORD")
+ 
+
+encoded_username = quote_plus(username)
+encoded_password = quote_plus(password)
+ 
+# MongoDB connection string
+mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@billbizz.val4sxs.mongodb.net/BillBizz?retryWrites=true&w=majority&appName=BillBizz"
+
+try:
+    client = MongoClient(mongodb_uri)
+    db = client.get_database('BillBizz')
+    app.config['db']=db
+    logging.info("Connected to MongoDB")
+    print("Connected to MongoDB")
+except Exception as e:
+    logging.error(f"Failed to connect to MongoDB: {str(e)}")
 
 @app.route('/', methods=['GET'])
 def fn():
     return jsonify("OCR is running")
 
-
-# Generate Token Endpoint (Optional, but recommended)
+# Generate Token Endpoint
 @app.route('/api/generate-token', methods=['POST'])
 def generate_token():
     """
@@ -60,174 +82,144 @@ def generate_token():
     }), 200
 
 
-
 @app.route('/api/upload', methods=['POST'])
+
 @TokenService.verify_token
+
 def upload_purchase_bill():
-    # Validate file upload
-    file = request.files.get('file')
-    if not file:
-        return jsonify({"error": "No file uploaded"}), 400
-    
-    # Secure and save the file
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
-
-    # Get organization ID from request
-    organization_id = request.form.get("organization_id")
-    
-    # Comprehensive system prompt
-    system_prompt = """
-    You are an expert at extracting structured data from purchase invoices.
-    Follow these strict guidelines:
-    1. Return a VALID JSON response
-    2. Use lowercase for all string values
-    3. Use null for unknown/missing values
-    4. Ensure numeric fields are numbers
-    5. Include all requested fields even if empty
-
-    Required JSON Structure:
-    {
-        "supplier_name": "string",
-        "bill_number": "string",
-        "bill_date": "string",
-        "due_date": "string",
-        "supplier_id": "string",
-        "supplier_country": "string",
-        "supplier_state": "string",
-        "purchase_order_number": "string",
-        "purchase_order_date": "string",
-        "source_of_supply": "string",
-        "destination_of_supply": "string",
-        "payment_terms": "string", 
-        "payment_mode": "string",
-        "paid_status": "string",
-        "subtotal": 0.0,
-        "total_tax_amount": 0.0,
-        "grand_total": 0.0,
-        "paid_amount": 0.0,
-        "balance_amount": 0.0,
-        "items": [
-            {
-                "item_id": "string",
-                "item_name": "string", 
-                "quantity": 0.0,
-                "cost_price": 0.0,
-                "tax_rate": 0.0,
-                "item_discount": 0.0,
-                "discount_type": "string",
-                "sgst_rate": 0.0,
-                "cgst_rate": 0.0,
-                "igst_rate": 0.0,
-                "vat_rate": 0.0,
-                "sgst_amount": 0.0,
-                "cgst_amount": 0.0,
-                "igst_amount": 0.0,
-                "vat_amount": 0.0
-            }
-        ]
-    }
-    """
-
-    user_prompt = "Extract and structure the invoice data into a comprehensive JSON format for a purchase bill."
-
-    # Get the output from the Gemini model
     try:
-        output = gemini_output(filepath, system_prompt, user_prompt)
+        # Access user details set by the verify_token decorator
+        user_details = request.user  # Contains 'id', 'organizationId', 'userName'
+        organization_id = user_details.get('organizationId') 
+        print("Organization ID:", organization_id)
+        # Validate file upload
+        data = request.json
+        if not data or 'file' not in data:
+            return jsonify({"error": "No file uploaded"}), 400
+        image = data
+
+        # Decode the base64 string
+        try:
+            # Extract the base64 string 
+            base64_string = data['file']
+            if 'base64,' in base64_string:
+                base64_string = base64_string.split('base64,')[1]
         
-        # Debug: Print raw output
-        print("Raw Gemini Output:", output)
-        
-        # Multiple JSON parsing attempts
-        invoice_data = parse_json_safely(output)
-        
-        # Map extracted data to Mongoose schema
-        purchase_bill_data = {
-            "organizationId": organization_id,
-            "supplierId": invoice_data.get('supplier_id', ''),
-            "supplierDisplayName": invoice_data.get('supplier_name', ''),
-            
-            # Supplier Billing Address
-            "supplierBillingCountry": invoice_data.get('supplier_country', ''),
-            "supplierBillingState": invoice_data.get('supplier_state', ''),
-            
-            # Bill Details
-            "billNumber": invoice_data.get('bill_number', ''),
-            "billDate": invoice_data.get('bill_date', ''),
-            "dueDate": invoice_data.get('due_date', ''),
-            
-            # Purchase Order Details
-            "orderNumber": invoice_data.get('purchase_order_number', ''),
-            "puchaseOrderDate": invoice_data.get('purchase_order_date', ''),
-            
-            # Supply Information
-            "sourceOfSupply": invoice_data.get('source_of_supply', ''),
-            "destinationOfSupply": invoice_data.get('destination_of_supply', ''),
-            
-            # Payment Details
-            "paymentTerms": invoice_data.get('payment_terms', ''),
-            "paymentMode": invoice_data.get('payment_mode', ''),
-            "paidStatus": invoice_data.get('paid_status', ''),
-            
-            # Items
-            "items": [
-                {
-                    "itemId": item.get('item_id', ''),
-                    "itemName": item.get('item_name', ''),
-                    "itemQuantity": item.get('quantity', 0),
-                    "itemCostPrice": item.get('cost_price', 0),
-                    "itemTax": item.get('tax_rate', 0),
-                    "itemDiscount": item.get('item_discount', 0),
-                    "itemDiscountType": item.get('discount_type', ''),
-                    "itemSgst": item.get('sgst_rate', 0),
-                    "itemCgst": item.get('cgst_rate', 0),
-                    "itemIgst": item.get('igst_rate', 0),
-                    "itemVat": item.get('vat_rate', 0),
-                    "itemSgstAmount": item.get('sgst_amount', 0),
-                    "itemCgstAmount": item.get('cgst_amount', 0),
-                    "itemIgstAmount": item.get('igst_amount', 0),
-                    "itemVatAmount": item.get('vat_amount', 0),
-                } for item in invoice_data.get('items', [])
-            ],
-            
-            # Financial Summary
-            "subTotal": invoice_data.get('subtotal', 0),
-            "totalItem": len(invoice_data.get('items', [])),
-            "sgst": invoice_data.get('total_sgst', 0),
-            "cgst": invoice_data.get('total_cgst', 0),
-            "igst": invoice_data.get('total_igst', 0),
-            "vat": invoice_data.get('total_vat', 0),
-            "transactionDiscount": invoice_data.get('total_discount', 0),
-            "transactionDiscountType": invoice_data.get('discount_type', ''),
-            "totalTaxAmount": invoice_data.get('total_tax_amount', 0),
-            "grandTotal": invoice_data.get('grand_total', 0),
-            "paidAmount": invoice_data.get('paid_amount', 0),
-            "balanceAmount": invoice_data.get('balance_amount', 0),
-            
-            # Additional Details
-            "createdDate": datetime.now().isoformat()
-        }
-        
-        # Save to MongoDB
-        # Assuming PurchaseBill is a MongoDB collection
-        # purchase_bill_collection = db['purchase_bill']
-        # purchase_bill_id = purchase_bill_collection.insert_one(purchase_bill_data).inserted_id
-        return jsonify({
-            "message": "Purchase bill uploaded successfully",
-            "purchase_bill_data": purchase_bill_data
-        }), 200
+            # Decode the base64 string to bytes
+            file_content = base64.b64decode(base64_string)
+
+        except Exception as e:
+            print(f"Error decoding base64 file: {str(e)}")
+            return jsonify({"error": "Failed to decode file"}), 400
     
-    except Exception as e:
-        # Detailed error logging
-        print(f"Error processing purchase bill: {str(e)}")
+        # Create a temporary file to pass to the Gemini model
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                temp_file.write(file_content)
+                temp_file_path = temp_file.name
+                
+
+            # Comprehensive system prompt
+            system_prompt = INVOICE_SYSTEM_PROMPT
+
+            user_prompt = "Extract and structure the invoice data into a comprehensive JSON format for a purchase bill."
+
+            # Get the output from the Gemini model
+            try:
+                output = gemini_output(temp_file_path, system_prompt, user_prompt)
+                
+                # Debug: Print raw output
+                print("Raw Gemini Output:", output)
+
+                try:
+                    # Remove markdown code block indicators
+                    cleaned_output = output.strip().replace("```json\n", "").replace("\n```", "").replace("\n``", "")
+                    # Parse the cleaned JSON string
+                    parsed_output = json.loads(cleaned_output)
+                    print("Parsed Output:", parsed_output)
+                    structured_output = {
+                        "invoice": parsed_output.get("invoice", {}),
+                    }
+
+                    # Push the data to MongoDB collection
+                    add_invoice(parsed_output,image,organization_id)
+
+                except json.JSONDecodeError as json_err:
+                    print(f"JSON Decode Error: {json_err}")
+                #     structured_output = {
+                # "invoice": parsed_output.get("invoice", {}),
+                # # "company_name": parsed_output["invoice"].get("company_name", ""),
+                # # "header": parsed_output["invoice"].get("header", {}),
+                # # # "items": parsed_output["invoice"].get("items", []),
+                # # "footer": parsed_output["invoice"].get("footer", {}),
+                # # "bank_details": parsed_output["invoice"].get("bank_details", {}),
+                # # "customer": parsed_output["invoice"].get("customer", {})
+                #     }
+                    return jsonify(structured_output), 400
+
+                response = {
+                    "message": "Purchase bill uploaded successfully",
+                    # "purchase_bill_data": structured_output,
+                }
+
+                return jsonify(response), 200
+        
+            except Exception as e:
+                # Detailed error logging
+                print(f"Error processing purchase bill: {str(e)}")
+                return jsonify({
+                    "error": "An unexpected error occurred while processing the purchase bill",
+                    "details": str(e)
+                }), 500
+
+            finally:
+                # Always remove the temporary file
+                try:
+                    os.unlink(temp_file_path)
+                except Exception as cleanup_err:
+                    print(f"Error cleaning up temporary file: {cleanup_err}")
+
+        except Exception as temp_file_err:
+            print(f"Error creating temporary file: {temp_file_err}")
+            return jsonify({
+                "error": "Failed to create temporary file",
+                "details": str(temp_file_err)
+            }), 500
+    
+
+    except Exception as general_err:
+        # Catch any unexpected errors
+        print(f"Unexpected error in upload_purchase_bill: {general_err}")
         return jsonify({
-            "error": "Failed to process purchase bill",
-            "details": str(e),
-            "raw_output": output  # Include raw output for debugging
+            "error": "An unexpected error occurred",
+            "details": str(general_err)
         }), 500
 
-        
+
+@app.route('/api/get_all_invoices', methods=['GET'])
+@TokenService.verify_token
+def get_all_invoices_api():
+    try:
+        # Access user details set by the verify_token decorator
+        user_details = request.user  # Contains 'id', 'organizationId', 'userName'
+        organization_id = user_details.get('organizationId')
+        invoices = get_all_invoices(organization_id=organization_id)
+        return jsonify(invoices), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/view_invoice/<invoice_id>', methods=['GET'])
+def view_invoice_api(invoice_id):
+    try:
+        invoice = view_invoice(invoice_id)
+        if invoice:
+            return jsonify(invoice), 200
+        else:
+            return jsonify({"error": "Invoice not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    
 def parse_json_safely(output):
     print("Raw output received:", output) 
     """
@@ -261,4 +253,4 @@ def parse_json_safely(output):
 
 # Run the Flask app
 if __name__ == '__main__':
-    app.run( host="0.0.0.0",debug=True)
+    app.run( host="0.0.0.0",port=5000,debug=True)
