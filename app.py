@@ -23,7 +23,8 @@ from prompt import INVOICE_SYSTEM_PROMPT
 # Initialize Flask app
 
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
+CORS(app, resources={r"/*": {"origins":"*"}})
 # CORS(app, resources={r"/*": {"origins": ["*"], "methods": ["GET", "POST", "PUT", "DELETE"]}})
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
@@ -292,4 +293,4 @@ def parse_json_safely(output):
 
 # Run the Flask app
 if __name__ == '__main__':
-    app.run( host="0.0.0.0",port=5000,debug=True)
+    app.run( host="0.0.0.0",port=5000)
