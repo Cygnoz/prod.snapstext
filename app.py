@@ -117,7 +117,7 @@ def upload_purchase_bill():
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
                 temp_file.write(file_content)
-                temp_file_path = temp_file.name
+                image_path = temp_file.name
 
             # Comprehensive system prompt
             system_prompt = INVOICE_SYSTEM_PROMPT
@@ -125,14 +125,46 @@ def upload_purchase_bill():
 
             try:
                 # Get the output from the Gemini model
-                output = gemini_output(temp_file_path, system_prompt, user_prompt)
+                output = gemini_output(image_path, system_prompt, user_prompt)
                 
                 # Debug: Print raw output
                 print("Raw Gemini Output:", output)
 
-                # Remove markdown code block indicators and parse JSON
-                cleaned_output = output.strip().replace("```json\n", "").replace("\n```", "").replace("\n``", "")
-                parsed_output = json.loads(cleaned_output)
+                # Enhanced JSON extraction and cleaning
+                def extract_json_from_text(text):
+                    # Find JSON content between markers if they exist
+                    if "```json" in text:
+                        # Extract content between ```json and ```
+                        start = text.find("```json") + 7
+                        end = text.find("```", start)
+                        if end == -1:  # If closing ``` not found
+                            json_str = text[start:].strip()
+                        else:
+                            json_str = text[start:end].strip()
+                    else:
+                        # Try to find JSON content without markers
+                        json_str = text.strip()
+                    
+                    # Remove any trailing or leading whitespace or quotes
+                    json_str = json_str.strip('"\'')
+                    return json_str
+
+                # Clean and parse the JSON
+                cleaned_output = extract_json_from_text(output)
+                print("Cleaned Output:", cleaned_output)
+                
+                try:
+                    parsed_output = json.loads(cleaned_output)
+                except json.JSONDecodeError:
+                    # If initial parsing fails, try to find the first valid JSON object
+                    import re
+                    # Find anything that looks like a JSON object
+                    potential_json = re.search(r'\{.*\}', cleaned_output, re.DOTALL)
+                    if potential_json:
+                        parsed_output = json.loads(potential_json.group())
+                    else:
+                        raise
+
                 print("Parsed Output:", parsed_output)
                 
                 # Structure the output
@@ -152,6 +184,7 @@ def upload_purchase_bill():
 
             except json.JSONDecodeError as json_err:
                 print(f"JSON Decode Error: {json_err}")
+                print(f"Problematic JSON string: {cleaned_output}")
                 return jsonify({
                     "error": "Failed to parse invoice data",
                     "details": str(json_err)
@@ -167,7 +200,7 @@ def upload_purchase_bill():
             finally:
                 # Always remove the temporary file
                 try:
-                    os.unlink(temp_file_path)
+                    os.unlink(image_path)
                 except Exception as cleanup_err:
                     print(f"Error cleaning up temporary file: {cleanup_err}")
 
@@ -184,6 +217,7 @@ def upload_purchase_bill():
             "error": "An unexpected error occurred",
             "details": str(general_err)
         }), 500
+    
 
 @app.route('/api/get_all_invoices', methods=['GET'])
 @TokenService.verify_token
