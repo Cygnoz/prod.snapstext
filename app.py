@@ -23,7 +23,8 @@ from prompt import INVOICE_SYSTEM_PROMPT
 # Initialize Flask app
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["*"], "methods": ["GET", "POST", "PUT", "DELETE"]}})
+CORS(app)
+# CORS(app, resources={r"/*": {"origins": ["*"], "methods": ["GET", "POST", "PUT", "DELETE"]}})
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Apply configuration
@@ -59,7 +60,8 @@ except Exception as e:
 
 @app.route('/', methods=['GET'])
 def fn():
-    return jsonify("OCR is running")
+    print("OCR is running")
+    return jsonify("OCR is Running")
 
 # Generate Token Endpoint
 @app.route('/api/generate-token', methods=['POST'])
@@ -83,15 +85,14 @@ def generate_token():
 
 
 @app.route('/api/upload', methods=['POST'])
-
 @TokenService.verify_token
-
 def upload_purchase_bill():
     try:
         # Access user details set by the verify_token decorator
         user_details = request.user  # Contains 'id', 'organizationId', 'userName'
         organization_id = user_details.get('organizationId') 
         print("Organization ID:", organization_id)
+        
         # Validate file upload
         data = request.json
         if not data or 'file' not in data:
@@ -117,55 +118,46 @@ def upload_purchase_bill():
             with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
                 temp_file.write(file_content)
                 temp_file_path = temp_file.name
-                
 
             # Comprehensive system prompt
             system_prompt = INVOICE_SYSTEM_PROMPT
-
             user_prompt = "Extract and structure the invoice data into a comprehensive JSON format for a purchase bill."
 
-            # Get the output from the Gemini model
             try:
+                # Get the output from the Gemini model
                 output = gemini_output(temp_file_path, system_prompt, user_prompt)
                 
                 # Debug: Print raw output
                 print("Raw Gemini Output:", output)
 
-                try:
-                    # Remove markdown code block indicators
-                    cleaned_output = output.strip().replace("```json\n", "").replace("\n```", "").replace("\n``", "")
-                    # Parse the cleaned JSON string
-                    parsed_output = json.loads(cleaned_output)
-                    print("Parsed Output:", parsed_output)
-                    structured_output = {
-                        "invoice": parsed_output.get("invoice", {}),
-                    }
+                # Remove markdown code block indicators and parse JSON
+                cleaned_output = output.strip().replace("```json\n", "").replace("\n```", "").replace("\n``", "")
+                parsed_output = json.loads(cleaned_output)
+                print("Parsed Output:", parsed_output)
+                
+                # Structure the output
+                structured_output = {
+                    "invoice": parsed_output.get("invoice", {}),
+                }
 
-                    # Push the data to MongoDB collection
-                    add_invoice(parsed_output,image,organization_id)
-
-                except json.JSONDecodeError as json_err:
-                    print(f"JSON Decode Error: {json_err}")
-                #     structured_output = {
-                # "invoice": parsed_output.get("invoice", {}),
-                # # "company_name": parsed_output["invoice"].get("company_name", ""),
-                # # "header": parsed_output["invoice"].get("header", {}),
-                # # # "items": parsed_output["invoice"].get("items", []),
-                # # "footer": parsed_output["invoice"].get("footer", {}),
-                # # "bank_details": parsed_output["invoice"].get("bank_details", {}),
-                # # "customer": parsed_output["invoice"].get("customer", {})
-                #     }
-                    return jsonify(structured_output), 400
+                # Push the data to MongoDB collection
+                add_invoice(parsed_output, image, organization_id)
 
                 response = {
                     "message": "Purchase bill uploaded successfully",
-                    # "purchase_bill_data": structured_output,
+                    "purchase_bill_data": structured_output,
                 }
 
                 return jsonify(response), 200
-        
+
+            except json.JSONDecodeError as json_err:
+                print(f"JSON Decode Error: {json_err}")
+                return jsonify({
+                    "error": "Failed to parse invoice data",
+                    "details": str(json_err)
+                }), 400
+
             except Exception as e:
-                # Detailed error logging
                 print(f"Error processing purchase bill: {str(e)}")
                 return jsonify({
                     "error": "An unexpected error occurred while processing the purchase bill",
@@ -185,16 +177,13 @@ def upload_purchase_bill():
                 "error": "Failed to create temporary file",
                 "details": str(temp_file_err)
             }), 500
-    
 
     except Exception as general_err:
-        # Catch any unexpected errors
         print(f"Unexpected error in upload_purchase_bill: {general_err}")
         return jsonify({
             "error": "An unexpected error occurred",
             "details": str(general_err)
         }), 500
-
 
 @app.route('/api/get_all_invoices', methods=['GET'])
 @TokenService.verify_token
