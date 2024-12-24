@@ -36,6 +36,7 @@ INVOICE_SYSTEM_PROMPT = """
                 due_date: '',
             },
             items : [{
+                item_id : '',
                 product_name : '',
                 HSN_SAC : '',
                 Quantity :'',

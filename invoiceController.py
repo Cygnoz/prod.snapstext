@@ -8,6 +8,7 @@ from urllib.parse import quote_plus
 # from typing import List
 from datetime import date
 from bson import ObjectId
+from uuid import uuid4
 
 app = Flask(__name__)
 CORS(app)
@@ -81,6 +82,10 @@ invoice_collection = db.get_collection('invoices')
 def add_invoice(purchase_bill_data,image,organization_id):
     if purchase_bill_data is None:
         purchase_bill_data = request.json
+        # Add unique IDs to each item
+    if 'items' in purchase_bill_data:
+        for idx, item in enumerate(purchase_bill_data['items'], start=1):
+            item['item_id'] = str(idx)  # Generate sequential ID
     purchase_bill_data['image'] = image
     purchase_bill_data['organization_id'] = organization_id
     purchase_bill_data['uploaded_date'] = date.today().strftime("%d-%m-%Y")
