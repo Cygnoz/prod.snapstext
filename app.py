@@ -26,7 +26,7 @@ app = Flask(__name__)
 # CORS(app)
 CORS(app, resources={r"/*": {"origins":"*"}})
 # CORS(app, resources={r"/*": {"origins": ["*"], "methods": ["GET", "POST", "PUT", "DELETE"]}})
-app.config['UPLOAD_FOLDER'] = 'uploads'
+# app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # Apply configuration
 app.config.from_object(Config)
@@ -34,8 +34,8 @@ Config.init_app(app)
 
 
 # Ensure upload folder exists
-if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'])
+# if not os.path.exists(app.config['UPLOAD_FOLDER']):
+#     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 
 load_dotenv()
@@ -291,6 +291,19 @@ def parse_json_safely(output):
     raise ValueError("Cannot parse JSON from output")
 
 
-# Run the Flask app
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 if __name__ == '__main__':
-    app.run( host="0.0.0.0",port=5000)
+    try:
+        port = int(os.getenv("PORT", 5000))
+        logger.info(f"Starting server on port {port}")
+        app.run(
+            host="0.0.0.0",
+            port=port,
+            debug=False  # Ensure debug is off for production
+        )
+    except Exception as e:
+        logger.error(f"Failed to start server: {str(e)}")

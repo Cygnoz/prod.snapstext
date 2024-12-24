@@ -1,34 +1,46 @@
-# Use official Python image
 FROM python:3.12-slim
 
 # Set working directory
 WORKDIR /app
 
-# Create and activate virtual environment
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PATH="/opt/venv/bin:$PATH"
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    FLASK_ENV=production
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    poppler-utils \
+    libzbar0 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
 RUN python -m venv /opt/venv
 
-# Copy only the requirements file first
-COPY requirements.txt .
-
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
-# Install Gunicorn
-RUN pip install --no-cache-dir gunicorn
 
-# Copy the rest of the application files
+# Copy application code
 COPY . .
 
-# Expose the port
+# Expose port
 EXPOSE 5000
 
-# Set production mode
-ENV FLASK_ENV=production
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/ || exit 1
 
 # Run with Gunicorn
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "120", "app:app"]
+CMD ["gunicorn", \
+     "--workers", "4", \
+     "--bind", "0.0.0.0:5000", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "--log-level", "info", \
+     "wsgi:app"]
