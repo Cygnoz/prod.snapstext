@@ -250,14 +250,38 @@ def delete_invoice_api(invoice_id):
         return jsonify(result), result[1]
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
+    
 @app.route('/api/update_status/<invoice_id>', methods=['PUT'])
 def update_status_api(invoice_id):
     try:
-        result = update_status(invoice_id)
-        return jsonify(result), result[1]
+        # Get the request data
+        request_data = request.get_json(silent=True)
+        
+        # If request_data is a list, take just the first item (the document)
+        if isinstance(request_data, list):
+            update_data = request_data[0]
+        else:
+            update_data = request_data
+
+        # If no data provided, use empty dict
+        if update_data is None:
+            update_data = {}
+            
+        # Call update_status and unpack the response
+        response_dict, status_code = update_status(invoice_id, update_data)
+        
+        return jsonify(response_dict), status_code
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# @app.route('/api/update_status/<invoice_id>', methods=['PUT'])
+# def update_status_api(invoice_id):
+#     try:
+#         result = update_status(invoice_id,update_data=request.json)
+#         return jsonify(result), result[1]
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
 
 def parse_json_safely(output):
