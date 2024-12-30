@@ -96,9 +96,8 @@ def add_invoice(purchase_bill_data,image,organization_id):
     
 def view_invoice(invoice_id):
     try:
-        invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
+        invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)}, {"_id":0})
         if invoice:
-            invoice['_id'] = str(invoice['_id'])
             return invoice, 200
         else:
             return {"error": "Invoice not found"}, 404
