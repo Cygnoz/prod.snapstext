@@ -159,62 +159,100 @@ def update_status(invoice_id, update_data):
         tuple: (response_dict, status_code)
     """
     try:
-        # First check if invoice exists
+        # Check if invoice exists
         invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
         if not invoice:
             return {"error": "Invoice not found"}, 404
 
-        # Initialize the update data with default status fields
-        # Force status to be different from current to ensure update
+        # Default status update fields
         update_fields = {
             "status": "Reviewed",
             "review_date": date.today().strftime("%d-%m-%Y")
         }
         
-        # If additional update data is provided, merge it with status fields
+        # Merge additional fields if provided
         if update_data:
             update_fields.update(update_data)
         
+        # Check for changes before updating
+        changes_detected = {
+            key: update_fields[key]
+            for key in update_fields
+            if str(update_fields[key]) != str(invoice.get(key))
+        }
+
+        if not changes_detected:
+            return {"error": "No changes detected"}, 400
+
         # Perform the update
         result = invoice_collection.update_one(
             {"_id": ObjectId(invoice_id)},
             {"$set": update_fields}
         )
         
-        # Verify the update
-        updated_invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
-        
-        if updated_invoice:
-            # Compare relevant fields to confirm update
-            fields_changed = any(
-                str(updated_invoice.get(key)) != str(invoice.get(key))
-                for key in update_fields.keys()
-            )
-            
-            if fields_changed:
-                return {"message": "Invoice status updated successfully"}, 200
-            else:
-                return {"error": "Update failed - no changes detected"}, 400
+        if result.modified_count > 0:
+            return {"message": "Invoice status updated successfully"}, 200
         else:
-            return {"error": "Failed to verify update"}, 500
-            
+            return {"error": "Update failed - no changes applied"}, 400
+
     except Exception as e:
         return {"error": f"Update failed: {str(e)}"}, 500
+
+
+# def update_status(invoice_id, update_data):
+#     """
+#     Update invoice status and optionally other fields with proper change detection
     
-# def update_status(invoice_id):
+#     Args:
+#         invoice_id (str): The ID of the invoice to update
+#         update_data (dict, optional): Additional fields to update
+        
+#     Returns:
+#         tuple: (response_dict, status_code)
+#     """
 #     try:
+#         # First check if invoice exists
+#         invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
+#         if not invoice:
+#             return {"error": "Invoice not found"}, 404
+
+#         # Initialize the update data with default status fields
+#         # Force status to be different from current to ensure update
+#         update_fields = {
+#             "status": "Reviewed",
+#             "review_date": date.today().strftime("%d-%m-%Y")
+#         }
+        
+#         # If additional update data is provided, merge it with status fields
+#         if update_data:
+#             update_fields.update(update_data)
+        
+#         # Perform the update
 #         result = invoice_collection.update_one(
 #             {"_id": ObjectId(invoice_id)},
-#             {"$set": {"status": "Reviewed",
-#                         "review_date": date.today().strftime("%d-%m-%Y")}}
+#             {"$set": update_fields}
 #         )
-#         if result.modified_count == 1:
-#             return {"message": "Invoice status updated successfully"}, 200
+        
+#         # Verify the update
+#         updated_invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
+        
+#         if updated_invoice:
+#             # Compare relevant fields to confirm update
+#             fields_changed = any(
+#                 str(updated_invoice.get(key)) != str(invoice.get(key))
+#                 for key in update_fields.keys()
+#             )
+            
+#             if fields_changed:
+#                 return {"message": "Invoice status updated successfully"}, 200
+#             else:
+#                 return {"error": "Update failed - no changes detected"}, 400
 #         else:
-#             return {"error": "Invoice not found"}, 404
+#             return {"error": "Failed to verify update"}, 500
+            
 #     except Exception as e:
-#         return {"error": str(e)}, 500
-          
+#         return {"error": f"Update failed: {str(e)}"}, 500
+ 
 
 if __name__ == '__main__':
     app.run(debug=True)
