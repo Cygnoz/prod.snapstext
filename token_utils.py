@@ -16,35 +16,6 @@ if not SECRET_KEY:
 
 
 class TokenService:
-    @staticmethod
-    def generate_token(user):
-        print("hello")
-        """
-        Generate a JWT token for the user.
-
-        :param user: Dictionary containing user information (id, organizationId, userName)
-        :return: Encoded JWT token
-        """
-        # Collect client metadata
-        request_ip = request.remote_addr
-        request_user_agent = request.headers.get('User-Agent')
-
-        # Define the payload with user details and metadata
-        payload = {
-            'id': user['id'],  # User ID
-            'userName': user['userName'],  # User Name
-            'organizationId': user['organizationId'],  # Organization ID
-            'ip': request_ip,  # IP Address
-            'userAgent': request_user_agent,  # User Agent
-            'iat': int(datetime.utcnow().timestamp()),  # Issued At
-            'nbf': int(datetime.utcnow().timestamp()),  # Not Before
-            'exp': int((datetime.utcnow() + timedelta(hours=12)).timestamp())  # Expiry (12 hours)
-        }
-
-        # Generate and return the JWT token
-        token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
-        return token
-
     
     @staticmethod
     def verify_token(f):

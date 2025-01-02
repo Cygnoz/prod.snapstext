@@ -20,10 +20,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create virtual environment
 RUN python -m venv /opt/venv
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+# Create a non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
+# Set permissions for the working directory
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Install Python dependencies
+COPY requirements.txt . 
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy application code
 COPY . .
@@ -43,4 +51,4 @@ CMD ["gunicorn", \
      "--access-logfile", "-", \
      "--error-logfile", "-", \
      "--log-level", "info", \
-     "wsgi:app"]
+     "app:app"]

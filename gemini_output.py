@@ -1,10 +1,12 @@
 import google.generativeai as genai
 from pathlib import Path
 import mimetypes
+import os
+from dotenv import load_dotenv
 
-
-# Replace with your actual API key
-GOOGLE_API_KEY = "AIzaSyBMwuihIx3SHAnrLkIM4A3xs7IcbQ1jbgY"
+load_dotenv()
+# API key
+GOOGLE_API_KEY = os.getenv('API_KEY')
 
 # Configure API key
 genai.configure(api_key=GOOGLE_API_KEY)

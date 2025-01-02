@@ -1,21 +1,22 @@
+from gevent import monkey
+monkey.patch_all()
 from flask import Flask, request, jsonify
 import os
 from flask_cors import CORS
-from pymongo import MongoClient, errors
+from pymongo import MongoClient
 from bson import ObjectId
 from gemini_output import gemini_output
 import json
 import re
 from datetime import datetime
 import tempfile
-# from io import BytesIO
 import base64
 from config import Config
 from token_utils import TokenService
-# from json import JSONEncoder
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 import logging
+from gevent.pywsgi import WSGIServer
 from invoiceController import add_invoice, get_all_invoices,view_invoice,delete_invoice,update_status
 from prompt import INVOICE_SYSTEM_PROMPT
 
@@ -23,19 +24,15 @@ from prompt import INVOICE_SYSTEM_PROMPT
 # Initialize Flask app
 
 app = Flask(__name__)
+
+
 # CORS(app)
-CORS(app, resources={r"/*": {"origins":"*"}})
-# CORS(app, resources={r"/*": {"origins": ["*"], "methods": ["GET", "POST", "PUT", "DELETE"]}})
-# app.config['UPLOAD_FOLDER'] = 'uploads'
+# CORS(app, resources={r"/*": {"origins":"*"}})
+CORS(app, resources={r"/*": {"origins": ["https://dev.billbizz.cloud/"]}})
 
 # Apply configuration
 app.config.from_object(Config)
 Config.init_app(app)
-
-
-# Ensure upload folder exists
-# if not os.path.exists(app.config['UPLOAD_FOLDER']):
-#     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 
 load_dotenv()
@@ -65,24 +62,24 @@ def fn():
     return jsonify("OCR is Running")
 
 # Generate Token Endpoint
-@app.route('/api/generate-token', methods=['POST'])
-def generate_token():
-    """
-    Endpoint to generate a token for an organization
-    """
-    data = request.get_json()
-    organization_id = data.get('organizationId')
+# @app.route('/api/generate-token', methods=['POST'])
+# def generate_token():
+#     """
+#     Endpoint to generate a token for an organization
+#     """
+#     data = request.get_json()
+#     organization_id = data.get('organizationId')
     
-    if not organization_id:
-        return jsonify({"error": "Organization ID is required"}), 400
+#     if not organization_id:
+#         return jsonify({"error": "Organization ID is required"}), 400
     
-    # Generate token
-    token = TokenService.generate_token(data)
+#     # Generate token
+#     token = TokenService.generate_token(data)
     
-    return jsonify({
-        "message": "Token generated successfully",
-        "token": token
-    }), 200
+#     return jsonify({
+#         "message": "Token generated successfully",
+#         "token": token
+#     }), 200
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -129,7 +126,7 @@ def upload_purchase_bill():
                 output = gemini_output(image_path, system_prompt, user_prompt)
                 
                 # Debug: Print raw output
-                print("Raw Gemini Output:", output)
+                # print("Raw Gemini Output:", output)
 
                 # Enhanced JSON extraction and cleaning
                 def extract_json_from_text(text):
@@ -152,7 +149,7 @@ def upload_purchase_bill():
 
                 # Clean and parse the JSON
                 cleaned_output = extract_json_from_text(output)
-                print("Cleaned Output:", cleaned_output)
+                # print("Cleaned Output:", cleaned_output)
                 
                 try:
                     parsed_output = json.loads(cleaned_output)
@@ -233,6 +230,7 @@ def get_all_invoices_api():
         return jsonify({"error": str(e)}), 500
     
 @app.route('/api/view_invoice/<invoice_id>', methods=['GET'])
+@TokenService.verify_token
 def view_invoice_api(invoice_id):
     try:
         invoice = view_invoice(invoice_id)
@@ -244,6 +242,7 @@ def view_invoice_api(invoice_id):
         return jsonify({"error": str(e)}), 500
     
 @app.route('/api/delete_invoice/<invoice_id>', methods=['DELETE'])
+@TokenService.verify_token
 def delete_invoice_api(invoice_id):
     try:
         result = delete_invoice(invoice_id)
@@ -252,6 +251,7 @@ def delete_invoice_api(invoice_id):
         return jsonify({"error": str(e)}), 500
     
 @app.route('/api/update_status/<invoice_id>', methods=['PUT'])
+@TokenService.verify_token
 def update_status_api(invoice_id):
     try:
         # Get the request data
@@ -315,7 +315,6 @@ def parse_json_safely(output):
     raise ValueError("Cannot parse JSON from output")
 
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -323,11 +322,13 @@ logger = logging.getLogger(__name__)
 if __name__ == '__main__':
     try:
         port = int(os.getenv("PORT", 5000))
-        logger.info(f"Starting server on port {port}")
-        app.run(
-            host="0.0.0.0",
-            port=port,
-            debug=False  # Ensure debug is off for production
-        )
+        logger.info(f"Starting production server on port {port}")
+        
+        # Use gevent WSGI server instead of Flask development server
+        http_server = WSGIServer(('0.0.0.0', port), app)
+        logger.info(f"Serving on http://0.0.0.0:{port}")
+        http_server.serve_forever()
+        
     except Exception as e:
         logger.error(f"Failed to start server: {str(e)}")
+        raise

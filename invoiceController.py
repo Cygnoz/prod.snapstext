@@ -4,14 +4,9 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
-# from pydantic import BaseModel, Field
-# from typing import List
 from datetime import date
 from bson import ObjectId
 from uuid import uuid4
-
-app = Flask(__name__)
-CORS(app)
 
 load_dotenv()
 
@@ -78,7 +73,7 @@ client = MongoClient(mongodb_uri)
 db = client.get_database('BillBizz') 
 invoice_collection = db.get_collection('invoices')  
 
-@app.route('/add_invoice', methods=['POST'])
+# Invoice add to DB
 def add_invoice(purchase_bill_data,image,organization_id):
     if purchase_bill_data is None:
         purchase_bill_data = request.json
@@ -254,5 +249,5 @@ def update_status(invoice_id, update_data):
 #         return {"error": f"Update failed: {str(e)}"}, 500
  
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ == '__main__':
+#     app.run(debug=True)
