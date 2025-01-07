@@ -68,7 +68,7 @@ encoded_password = quote_plus(password)
 #     ifsc_code: str = Field(..., alias="ifscCode")
 
 # MongoDB connection string
-mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@billbizz.val4sxs.mongodb.net/BillBizz?retryWrites=true&w=majority&appName=BillBizz"
+mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
 client = MongoClient(mongodb_uri)
 db = client.get_database('BillBizz') 
 invoice_collection = db.get_collection('invoices')  

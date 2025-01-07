@@ -45,7 +45,7 @@ encoded_username = quote_plus(username)
 encoded_password = quote_plus(password)
  
 # MongoDB connection string
-mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@billbizz.val4sxs.mongodb.net/BillBizz?retryWrites=true&w=majority&appName=BillBizz"
+mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
 
 try:
     client = MongoClient(mongodb_uri)
@@ -322,6 +322,7 @@ logger = logging.getLogger(__name__)
 if __name__ == '__main__':
     try:
         port = int(os.getenv("PORT", 5000))
+        print(f"Starting production server on port {port}")
         logger.info(f"Starting production server on port {port}")
         
         # Use gevent WSGI server instead of Flask development server
