@@ -12,4 +12,4 @@ pdf2image==1.17.0
 pyzbar==0.1.9
 Pillow==10.2.0
 gunicorn==20.1.0
-gevent==22.10.2
+gevent>=23.0.0
