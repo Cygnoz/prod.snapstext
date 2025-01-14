@@ -17,11 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create virtual environment
-RUN python -m venv /opt/venv
-
 # Create a non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Create virtual environment and set permissions
+RUN python -m venv /opt/venv && \
+    chown -R appuser:appuser /opt/venv
 
 # Set permissions for the working directory
 RUN chown -R appuser:appuser /app
@@ -30,11 +31,12 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Install Python dependencies
-COPY requirements.txt . 
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+COPY --chown=appuser:appuser requirements.txt .
+RUN /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt gunicorn
 
-# Copy application code
-COPY . .
+# Copy application code with correct ownership
+COPY --chown=appuser:appuser . .
 
 # Expose port
 EXPOSE 5000
