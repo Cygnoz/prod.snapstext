@@ -1,12 +1,10 @@
 from flask import Flask, request, jsonify
 import os
-from flask_cors import CORS
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from datetime import date
 from bson import ObjectId
-from uuid import uuid4
 
 load_dotenv()
 
