@@ -28,7 +28,7 @@ app = Flask(__name__)
 
 # CORS(app)
 # CORS(app, resources={r"/*": {"origins":"*"}})
-CORS(app, resources={r"/*": {"origins": ["https://dev.billbizz.cloud/"]}})
+CORS(app, resources={r"/*": {"origins": ["https://dev.billbizz.cloud/"]}}, methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # Apply configuration
 app.config.from_object(Config)
