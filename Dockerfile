@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     poppler-utils \
     libzbar0 \
+    libmagic1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
