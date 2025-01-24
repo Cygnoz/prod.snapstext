@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 from urllib.parse import quote_plus
 import logging
 from gevent.pywsgi import WSGIServer
+import magic  # python-magic library for file type detection
+import uuid
 from invoiceController import add_invoice, get_all_invoices,view_invoice,delete_invoice,update_status
 from prompt import INVOICE_SYSTEM_PROMPT
 
@@ -62,24 +64,25 @@ def fn():
     return jsonify("OCR is Running")
 
 # Generate Token Endpoint
-# @app.route('/api/generate-token', methods=['POST'])
-# def generate_token():
-#     """
-#     Endpoint to generate a token for an organization
-#     """
-#     data = request.get_json()
-#     organization_id = data.get('organizationId')
+@app.route('/api/generate-token', methods=['POST'])
+def generate_token():
+    """
+    Endpoint to generate a token for an organization
+    """
+    data = request.get_json()
+    organization_id = data.get('organizationId')
     
-#     if not organization_id:
-#         return jsonify({"error": "Organization ID is required"}), 400
+    if not organization_id:
+        return jsonify({"error": "Organization ID is required"}), 400
     
-#     # Generate token
-#     token = TokenService.generate_token(data)
+    # Generate token
+    token = TokenService.generate_token(data)
     
-#     return jsonify({
-#         "message": "Token generated successfully",
-#         "token": token
-#     }), 200
+    return jsonify({
+        "message": "Token generated successfully",
+        "token": token
+    }), 200
+
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -89,31 +92,56 @@ def upload_purchase_bill():
         # Access user details set by the verify_token decorator
         user_details = request.user  # Contains 'id', 'organizationId', 'userName'
         organization_id = user_details.get('organizationId') 
-        print("Organization ID:", organization_id)
         
         # Validate file upload
         data = request.json
         if not data or 'file' not in data:
             return jsonify({"error": "No file uploaded"}), 400
-        image = data
 
-        # Decode the base64 string
-        try:
-            # Extract the base64 string 
-            base64_string = data['file']
-            if 'base64,' in base64_string:
-                base64_string = base64_string.split('base64,')[1]
+        # Extract the base64 string 
+        base64_string = data['file']
+        if 'base64,' in base64_string:
+            base64_string = base64_string.split('base64,')[1]
         
-            # Decode the base64 string to bytes
+        # Decode the base64 string to bytes
+        try:
             file_content = base64.b64decode(base64_string)
-
         except Exception as e:
             print(f"Error decoding base64 file: {str(e)}")
             return jsonify({"error": "Failed to decode file"}), 400
     
-        # Create a temporary file to pass to the Gemini model
+        # Detect file type using python-magic
+        file_type = magic.from_buffer(file_content, mime=True)
+        print(f"Detected file type: {file_type}")
+
+        # List of supported file types
+        SUPPORTED_TYPES = [
+            'image/jpeg', 
+            'image/png', 
+            'application/pdf'
+        ]
+
+        # Validate file type
+        if file_type not in SUPPORTED_TYPES:
+            return jsonify({
+                "error": "Unsupported file type", 
+                "supported_types": SUPPORTED_TYPES
+            }), 400
+
+        # Create a unique temporary filename based on file type
+        file_extension = {
+            'image/jpeg': '.jpg',
+            'image/png': '.png',
+            'application/pdf': '.pdf'
+        }.get(file_type, '')
+
+        # Create a temporary file with a unique name and correct extension
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+            with tempfile.NamedTemporaryFile(
+                delete=False, 
+                suffix=file_extension, 
+                prefix=f'upload_{uuid.uuid4()}_'
+            ) as temp_file:
                 temp_file.write(file_content)
                 image_path = temp_file.name
 
@@ -122,41 +150,30 @@ def upload_purchase_bill():
             user_prompt = "Extract and structure the invoice data into a comprehensive JSON format for a purchase bill."
 
             try:
-                # Get the output from the Gemini model
+                # Get the output from the Gemini model (assuming it can handle multiple file types)
                 output = gemini_output(image_path, system_prompt, user_prompt)
                 
-                # Debug: Print raw output
-                # print("Raw Gemini Output:", output)
-
-                # Enhanced JSON extraction and cleaning
+                # JSON extraction logic (same as previous implementation)
                 def extract_json_from_text(text):
-                    # Find JSON content between markers if they exist
                     if "```json" in text:
-                        # Extract content between ```json and ```
                         start = text.find("```json") + 7
                         end = text.find("```", start)
-                        if end == -1:  # If closing ``` not found
+                        if end == -1:
                             json_str = text[start:].strip()
                         else:
                             json_str = text[start:end].strip()
                     else:
-                        # Try to find JSON content without markers
                         json_str = text.strip()
                     
-                    # Remove any trailing or leading whitespace or quotes
-                    json_str = json_str.strip('"\'')
-                    return json_str
+                    return json_str.strip('"\'')
 
                 # Clean and parse the JSON
                 cleaned_output = extract_json_from_text(output)
-                # print("Cleaned Output:", cleaned_output)
                 
                 try:
                     parsed_output = json.loads(cleaned_output)
                 except json.JSONDecodeError:
-                    # If initial parsing fails, try to find the first valid JSON object
                     import re
-                    # Find anything that looks like a JSON object
                     potential_json = re.search(r'\{.*\}', cleaned_output, re.DOTALL)
                     if potential_json:
                         parsed_output = json.loads(potential_json.group())
@@ -168,10 +185,11 @@ def upload_purchase_bill():
                 # Structure the output
                 structured_output = {
                     "invoice": parsed_output.get("invoice", {}),
+                    "file_type": file_type
                 }
 
                 # Push the data to MongoDB collection
-                add_invoice(parsed_output, image, organization_id)
+                add_invoice(parsed_output, data['file'], organization_id)
 
                 response = {
                     "message": "Purchase bill uploaded successfully",
@@ -318,6 +336,7 @@ def parse_json_safely(output):
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 if __name__ == '__main__':
     try:
