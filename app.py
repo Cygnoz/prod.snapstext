@@ -97,6 +97,7 @@ def upload_purchase_bill():
         data = request.json
         if not data or 'file' not in data:
             return jsonify({"error": "No file uploaded"}), 400
+        image=data
 
         # Extract the base64 string 
         base64_string = data['file']
@@ -185,11 +186,11 @@ def upload_purchase_bill():
                 # Structure the output
                 structured_output = {
                     "invoice": parsed_output.get("invoice", {}),
-                    "file_type": file_type
+                    # "file_type": file_type
                 }
 
                 # Push the data to MongoDB collection
-                add_invoice(parsed_output, data['file'], organization_id)
+                add_invoice(parsed_output,image, organization_id)
 
                 response = {
                     "message": "Purchase bill uploaded successfully",
