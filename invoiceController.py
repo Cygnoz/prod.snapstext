@@ -13,57 +13,6 @@ password = os.getenv("MONGODB_PASSWORD")
  
 encoded_username = quote_plus(username)
 encoded_password = quote_plus(password)
- 
-# class Item(BaseModel):
-#     item_id: str = Field(..., alias="itemId")
-#     item_name: str = Field(..., alias="itemName")
-#     item_quantity: int = Field(..., alias="itemQuantity")
-#     item_cost_price: float = Field(..., alias="itemCostPrice")
-#     item_tax: float = Field(..., alias="itemTax")
-#     item_discount: float = Field(..., alias="itemDiscount")
-#     item_discount_type: str = Field(..., alias="itemDiscountType")
-#     item_sgst: float = Field(..., alias="itemSgst")
-#     item_cgst: float = Field(..., alias="itemCgst")
-#     item_igst: float = Field(..., alias="itemIgst")
-#     item_vat: float = Field(..., alias="itemVat")
-#     item_sgst_amount: float = Field(..., alias="itemSgstAmount")
-#     item_cgst_amount: float = Field(..., alias="itemCgstAmount")
-#     item_igst_amount: float = Field(..., alias="itemIgstAmount")
-#     item_vat_amount: float = Field(..., alias="itemVatAmount")
-
-# class Invoice(BaseModel):
-#     organization_id: str = Field(..., alias="organizationId")
-#     supplier_id: str = Field(..., alias="supplierId")
-#     supplier_display_name: str = Field(..., alias="supplierDisplayName")
-#     supplier_billing_country: str = Field(..., alias="supplierBillingCountry")
-#     supplier_billing_state: str = Field(..., alias="supplierBillingState")
-#     bill_number: str = Field(..., alias="billNumber")
-#     bill_date: str = Field(..., alias="billDate")
-#     due_date: str = Field(..., alias="dueDate")
-#     order_number: str = Field(..., alias="orderNumber")
-#     purchase_order_date: str = Field(..., alias="puchaseOrderDate")
-#     source_of_supply: str = Field(..., alias="sourceOfSupply")
-#     destination_of_supply: str = Field(..., alias="destinationOfSupply")
-#     payment_terms: str = Field(..., alias="paymentTerms")
-#     payment_mode: str = Field(..., alias="paymentMode")
-#     paid_status: str = Field(..., alias="paidStatus")
-#     items: List[Item]
-#     sub_total: float = Field(..., alias="subTotal")
-#     total_item: int = Field(..., alias="totalItem")
-#     sgst: float
-#     cgst: float
-#     igst: float
-#     vat: float
-#     transaction_discount: float = Field(..., alias="transactionDiscount")
-#     transaction_discount_type: str = Field(..., alias="transactionDiscountType")
-#     total_tax_amount: float = Field(..., alias="totalTaxAmount")
-#     grand_total: float = Field(..., alias="grandTotal")
-#     paid_amount: float = Field(..., alias="paidAmount")
-#     balance_amount: float = Field(..., alias="balanceAmount")
-#     bank_name: str = Field(..., alias="bankName")
-#     account_number: str = Field(..., alias="accountNumber")
-#     branch_name: str = Field(..., alias="branchName")
-#     ifsc_code: str = Field(..., alias="ifscCode")
 
 # MongoDB connection string
 mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
@@ -71,21 +20,148 @@ client = MongoClient(mongodb_uri)
 db = client.get_database('BillBizz') 
 invoice_collection = db.get_collection('invoices')  
 
-# Invoice add to DB
-def add_invoice(purchase_bill_data,image,organization_id):
+# # Invoice add to DB
+# def add_invoice(purchase_bill_data,image,organization_id):
+#     if purchase_bill_data is None:
+#         purchase_bill_data = request.json
+#         # Add unique IDs to each item
+#     if 'items' in purchase_bill_data:
+#         for idx, item in enumerate(purchase_bill_data['items'], start=1):
+#             item['item_id'] = str(idx)  # Generate sequential ID
+#     purchase_bill_data['image'] = image
+#     purchase_bill_data['organization_id'] = organization_id
+#     purchase_bill_data['uploaded_date'] = date.today().strftime("%d-%m-%Y")
+#     purchase_bill_data['status'] = "Need review"
+#     invoice_collection.insert_one(purchase_bill_data)
+#     return {"message": "Invoice added successfully"}, 201
+
+from datetime import date
+from typing import Dict, Any, List
+
+def transform_invoice_data(purchase_bill_data: Dict[Any, Any]) -> Dict[str, Any]:
+    """Transform the data while maintaining the original structure but using new field names"""
+    invoice_data = purchase_bill_data.get('invoice', {})
+    header = invoice_data.get('header', {})
+    footer = invoice_data.get('footer', {})
+    bank_details = invoice_data.get('bank_details', {})
+
+    # Get image string directly from the image object
+    
+    image_string = purchase_bill_data.get('image', {})
+    
+    # Transform items while keeping original structure
+    transformed_items = []
+    for item in invoice_data.get('items', []):
+        # Remove currency symbols and commas from numeric strings
+        rate = str(item.get('rate', '0')).replace(',', '').replace('₹', '')
+        quantity = str(item.get('quantity', '0')).replace(',', '')
+        discount = str(item.get('discount', '0')).replace(',', '')
+        tax = str(item.get('tax', '0')).replace('%', '')
+        
+        transformed_item = {
+            'itemId': item.get('item_id', ''),
+            'itemName': item.get('product_name', ''),
+            'itemQuantity': quantity,
+            'itemCostPrice': rate,
+            'itemDiscount': discount,
+            'itemDiscountType': 'percentage',
+            'itemTax': tax,
+            'itemSgst': tax if tax else '0',
+            'itemCgst': tax if tax else '0',
+            'itemIgst': '0',
+            'itemVat': '0',
+            'itemSgstAmount': str(float(item.get('tax_amount', '0').replace(',', '')) / 2),
+            'itemCgstAmount': str(float(item.get('tax_amount', '0').replace(',', '')) / 2),
+            'taxPreference': 'tax_inclusive',
+            'purchaseAccountId': ''
+        }
+        transformed_items.append(transformed_item)
+
+    # Create the nested structure with new field names
+    transformed_data = {
+        'invoice': {
+            'companyName': header.get('supplier_name', ''),
+            'header': {
+                'billNumber': header.get('invoice_no', ''),
+                'supplierDisplayName': header.get('supplier_name', ''),
+                'supplierId': header.get('supplier_id', ''),
+                'supplierAddress': header.get('supplier_address', ''),
+                'supplierPhone': header.get('supplier_phone', ''),
+                'billDate': header.get('invoice_date', ''),
+                'dueDate': header.get('due_date', ''),
+                'sourceOfSupply': '',
+                'destinationOfSupply': '',
+                'taxMode': 'tax_inclusive',
+                'orderNumber': '',
+                'purchaseOrderDate': '',
+                'expectedShipmentDate': '',
+                'paymentMode': '',
+                'PaidThrough': ''
+            },
+            'items': transformed_items,
+            'footer': {
+                'cgst': footer.get('cgst', '0').replace(',', ''),
+                'sgst': footer.get('sgst', '0').replace(',', ''),
+                'igst': '0',
+                'paymentTerms': footer.get('payment_terms', ''),
+                'addNotes': footer.get('additional_notes', ''),
+                'termsAndConditions': footer.get('additional_notes', ''),
+                'subTotal': str(sum(float(item.get('net_amount', '0').replace(',', '')) for item in invoice_data.get('items', []))),
+                'totalItem': str(len(invoice_data.get('items', []))),
+                'transactionDiscountType': 'percentage',
+                'transactionDiscount': '0',
+                'transactionDiscountAmount': '0',
+                'totalTaxAmount': str(sum(float(item.get('tax_amount', '0').replace(',', '')) for item in invoice_data.get('items', []))),
+                'itemTotalDiscount': '0',
+                'roundOffAmount': '0',
+                'grandTotal': footer.get('grand_total', '0').replace(',', ''),
+                'balanceAmount': footer.get('grand_total', '0').replace(',', ''),
+                'paidAmount': '0'
+            },
+            'bank_details': {
+                'bankName': bank_details.get('bank_name', ''),
+                'accountNo': bank_details.get('account_no', ''),
+                'branchName': bank_details.get('branch_name', ''),
+                'ifscCode': bank_details.get('ifsc_code', '')
+            },
+            'otherDetails': {
+                'otherExpenseAmount': '0',
+                'otherExpenseAccountId': '',
+                'otherExpenseReason': '',
+                'vehicleNo': '',
+                'freightAmount': '0',
+                'freightAccountId': '',
+                'paidStatus': 'unpaid',
+                'shipmentPreference': '',
+                'paidAccountId': ''
+            }
+        },
+        'image': image_string,
+        'organizationId': purchase_bill_data.get('organization_id', ''),
+        'uploadedDate': date.today().strftime("%d-%m-%Y"),
+        'status': "Need review"
+    }
+    
+    return transformed_data
+
+def add_invoice(purchase_bill_data: Dict[Any, Any] = None, image: str = None, organization_id: str = None):
+    """Add transformed invoice data to the database"""
     if purchase_bill_data is None:
         purchase_bill_data = request.json
-        # Add unique IDs to each item
-    if 'items' in purchase_bill_data:
-        for idx, item in enumerate(purchase_bill_data['items'], start=1):
-            item['item_id'] = str(idx)  # Generate sequential ID
-    purchase_bill_data['image'] = image
-    purchase_bill_data['organization_id'] = organization_id
-    purchase_bill_data['uploaded_date'] = date.today().strftime("%d-%m-%Y")
-    purchase_bill_data['status'] = "Need review"
-    invoice_collection.insert_one(purchase_bill_data)
+    
+    # Transform the data while maintaining original structure
+    transformed_data = transform_invoice_data(purchase_bill_data)
+    
+    # Add additional required fields if provided
+    if image:
+        transformed_data['image'] = image
+    if organization_id:
+        transformed_data['organizationId'] = organization_id
+    
+    # Insert into database
+    invoice_collection.insert_one(transformed_data)
+    
     return {"message": "Invoice added successfully"}, 201
-
     
 def view_invoice(invoice_id):
     try:
@@ -100,14 +176,15 @@ def view_invoice(invoice_id):
 
 def get_all_invoices(organization_id):
     # Find all documents matching the organization_id
-    query = {'organization_id': organization_id}
+    query = {'organizationId': organization_id}
     
     # Only fetch required fields
     projection = {
         '_id': 1,
-        'invoice.header.supplier_name': 1,
-        'invoice.header.invoice_no': 1,
-        'invoice.header.invoice_date': 1,
+        'invoice.header.supplierDisplayName': 1,
+        'invoice.header.billNumber': 1,
+        # 'invoice.header.invoice_date': 1,
+        'uploadedDate': 1,
         'status': 1,
         'review_date': 1
     }
@@ -121,9 +198,9 @@ def get_all_invoices(organization_id):
     
     # return invoices
     return [{
-        'supplier_name': doc['invoice']['header']['supplier_name'],
-        'invoice_no': doc['invoice']['header']['invoice_no'],
-        'bill_date': doc['invoice']['header']['invoice_date'],
+        'supplierDisplayName': doc['invoice']['header']['supplierDisplayName'],
+        'billNumber': doc['invoice']['header']['billNumber'],
+        'uploadedDate': doc['uploadedDate'],
         'status': doc['status'],
         'review_date': doc.get('review_date', None),
         '_id': str(doc['_id'])
@@ -191,61 +268,3 @@ def update_status(invoice_id, update_data):
     except Exception as e:
         return {"error": f"Update failed: {str(e)}"}, 500
 
-
-# def update_status(invoice_id, update_data):
-#     """
-#     Update invoice status and optionally other fields with proper change detection
-    
-#     Args:
-#         invoice_id (str): The ID of the invoice to update
-#         update_data (dict, optional): Additional fields to update
-        
-#     Returns:
-#         tuple: (response_dict, status_code)
-#     """
-#     try:
-#         # First check if invoice exists
-#         invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
-#         if not invoice:
-#             return {"error": "Invoice not found"}, 404
-
-#         # Initialize the update data with default status fields
-#         # Force status to be different from current to ensure update
-#         update_fields = {
-#             "status": "Reviewed",
-#             "review_date": date.today().strftime("%d-%m-%Y")
-#         }
-        
-#         # If additional update data is provided, merge it with status fields
-#         if update_data:
-#             update_fields.update(update_data)
-        
-#         # Perform the update
-#         result = invoice_collection.update_one(
-#             {"_id": ObjectId(invoice_id)},
-#             {"$set": update_fields}
-#         )
-        
-#         # Verify the update
-#         updated_invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
-        
-#         if updated_invoice:
-#             # Compare relevant fields to confirm update
-#             fields_changed = any(
-#                 str(updated_invoice.get(key)) != str(invoice.get(key))
-#                 for key in update_fields.keys()
-#             )
-            
-#             if fields_changed:
-#                 return {"message": "Invoice status updated successfully"}, 200
-#             else:
-#                 return {"error": "Update failed - no changes detected"}, 400
-#         else:
-#             return {"error": "Failed to verify update"}, 500
-            
-#     except Exception as e:
-#         return {"error": f"Update failed: {str(e)}"}, 500
- 
-
-# if __name__ == '__main__':
-#     app.run(debug=True)
