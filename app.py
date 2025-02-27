@@ -19,7 +19,7 @@ import logging
 from gevent.pywsgi import WSGIServer
 import magic  # python-magic library for file type detection
 import uuid
-from invoiceController import add_invoice, get_all_invoices,view_invoice,delete_invoice,update_status
+from invoiceController import add_invoice, get_all_invoices,get_partial_invoice,get_full_invoice,delete_invoice,update_status
 from prompt import INVOICE_SYSTEM_PROMPT
 
 
@@ -248,18 +248,32 @@ def get_all_invoices_api():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-@app.route('/api/view_invoice/<invoice_id>', methods=['GET'])
+# View full invoice
+@app.route('/api/view_full_invoice/<invoice_id>', methods=['GET'])
 @TokenService.verify_token
-def view_invoice_api(invoice_id):
+def view_full_invoice(invoice_id):
     try:
-        invoice = view_invoice(invoice_id)
+        invoice = get_full_invoice(invoice_id)  # Use a unique function name
         if invoice:
             return jsonify(invoice), 200
         else:
             return jsonify({"error": "Invoice not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
+# View partial invoice  
+@app.route('/api/view_invoice/<invoice_id>', methods=['GET'])
+@TokenService.verify_token
+def view_invoice(invoice_id):
+    try:
+        invoice = get_partial_invoice(invoice_id)  # Use a unique function name
+        if invoice:
+            return jsonify(invoice), 200
+        else:
+            return jsonify({"error": "Invoice not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+  
 @app.route('/api/delete_invoice/<invoice_id>', methods=['DELETE'])
 @TokenService.verify_token
 def delete_invoice_api(invoice_id):

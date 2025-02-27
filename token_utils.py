@@ -18,7 +18,6 @@ class TokenService:
     
     @staticmethod
     def generate_token(user):
-        print("hello")
         """
         Generate a JWT token for the user.
 
@@ -74,7 +73,7 @@ class TokenService:
                     'userName': payload['userName']
                 }
                 # Print user details for debugging
-                print(f"User Details: {user_details}")
+                # print(f"User Details: {user_details}")
                 # Attach user details to the request object
                 request.user = user_details
 

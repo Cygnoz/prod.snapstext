@@ -163,7 +163,7 @@ def add_invoice(purchase_bill_data: Dict[Any, Any] = None, image: str = None, or
     
     return {"message": "Invoice added successfully"}, 201
     
-def view_invoice(invoice_id):
+def get_full_invoice(invoice_id):
     try:
         invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)}, {"_id":0})
         if invoice:
@@ -172,6 +172,86 @@ def view_invoice(invoice_id):
             return {"error": "Invoice not found"}, 404
     except Exception as e:
         return {"error": str(e)}, 500
+
+
+def get_partial_invoice(invoice_id):
+    try:
+        invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)}, {"_id": 0})
+        if not invoice:
+            return {"error": "Invoice not found"}, 404
+
+        # Mapping the required structure
+        invoice_data = {
+            "supplierId": invoice["invoice"]["header"].get("supplierId", ""),
+            "supplierDisplayName": invoice["invoice"]["header"].get("supplierDisplayName", ""),
+            "billNumber": invoice["invoice"]["header"].get("billNumber", ""),
+            "supplierInvoiceNum": invoice["invoice"]["header"].get("supplierInvoiceNum", ""),
+            "sourceOfSupply": invoice["invoice"]["header"].get("sourceOfSupply", ""),
+            "destinationOfSupply": invoice["invoice"]["header"].get("destinationOfSupply", ""),
+            "taxMode": invoice["invoice"]["header"].get("taxMode", ""),
+            "orderNumber": invoice["invoice"]["header"].get("orderNumber", ""),
+            "purchaseOrderDate": invoice["invoice"]["header"].get("purchaseOrderDate", ""),
+            "expectedShipmentDate": invoice["invoice"]["header"].get("expectedShipmentDate", ""),
+            "paymentTerms": invoice["invoice"]["header"].get("paymentTerms", ""),
+            "paymentMode": invoice["invoice"]["header"].get("paymentMode", ""),
+            "PaidThrough": invoice["invoice"]["header"].get("PaidThrough", ""),
+            "billDate": invoice["invoice"]["header"].get("billDate", ""),
+            "dueDate": invoice["invoice"]["header"].get("dueDate", ""),
+            "items": [],
+            "otherExpenseAmount": invoice["invoice"].get("otherExpenseAmount", ""),
+            "otherExpenseAccountId": invoice["invoice"].get("otherExpenseAccountId", ""),
+            "otherExpenseReason": invoice["invoice"].get("otherExpenseReason", ""),
+            "vehicleNo": invoice["invoice"].get("vehicleNo", ""),
+            "freightAmount": invoice["invoice"].get("freightAmount", ""),
+            "freightAccountId": invoice["invoice"].get("freightAccountId", ""),
+            "addNotes": invoice["invoice"].get("addNotes", ""),
+            "termsAndConditions": invoice["invoice"].get("termsAndConditions", ""),
+            "attachFiles": invoice["invoice"].get("attachFiles", ""),
+            "subTotal": invoice["invoice"].get("subTotal", ""),
+            "totalItem": invoice["invoice"].get("totalItem", ""),
+            "sgst": invoice["invoice"].get("sgst", ""),
+            "cgst": invoice["invoice"].get("cgst", ""),
+            "igst": invoice["invoice"].get("igst", ""),
+            "transactionDiscountType": invoice["invoice"].get("transactionDiscountType", ""),
+            "transactionDiscount": invoice["invoice"].get("transactionDiscount", ""),
+            "transactionDiscountAmount": invoice["invoice"].get("transactionDiscountAmount", ""),
+            "totalTaxAmount": invoice["invoice"].get("totalTaxAmount", ""),
+            "itemTotalDiscount": invoice["invoice"].get("itemTotalDiscount", ""),
+            "roundOffAmount": invoice["invoice"].get("roundOffAmount", ""),
+            "paidStatus": invoice["invoice"].get("paidStatus", ""),
+            "shipmentPreference": invoice["invoice"].get("shipmentPreference", ""),
+            "grandTotal": invoice["invoice"].get("grandTotal", ""),
+            "balanceAmount": invoice["invoice"].get("balanceAmount", ""),
+            "paidAmount": invoice["invoice"].get("paidAmount", ""),
+            "paidAccountId": invoice["invoice"].get("paidAccountId", ""),
+            "purchaseOrderId": invoice["invoice"].get("purchaseOrderId", ""),
+        }
+
+        # Populate items list
+        for item in invoice["invoice"].get("items", []):
+            invoice_data["items"].append({
+                "itemId": item.get("itemId", ""),
+                "itemName": item.get("itemName", ""),
+                "itemQuantity": item.get("itemQuantity", ""),
+                "itemCostPrice": item.get("itemCostPrice", ""),
+                "itemDiscount": item.get("itemDiscount", ""),
+                "itemDiscountType": item.get("itemDiscountType", ""),
+                "itemTax": item.get("itemTax", ""),
+                "itemSgst": item.get("itemSgst", ""),
+                "itemCgst": item.get("itemCgst", ""),
+                "itemIgst": item.get("itemIgst", ""),
+                "itemVat": item.get("itemVat", ""),
+                "itemSgstAmount": item.get("itemSgstAmount", ""),
+                "itemCgstAmount": item.get("itemCgstAmount", ""),
+                "taxPreference": item.get("taxPreference", ""),
+                "purchaseAccountId": item.get("purchaseAccountId", ""),
+            })
+
+        return invoice_data, 200
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+
 
 
 def get_all_invoices(organization_id):
