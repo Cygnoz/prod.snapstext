@@ -184,8 +184,8 @@ def get_partial_invoice(invoice_id):
         invoice_data = {
             "supplierId": invoice["invoice"]["header"].get("supplierId", ""),
             "supplierDisplayName": invoice["invoice"]["header"].get("supplierDisplayName", ""),
-            "billNumber": invoice["invoice"]["header"].get("billNumber", ""),
-            "supplierInvoiceNum": invoice["invoice"]["header"].get("supplierInvoiceNum", ""),
+            "supplierInvoiceNum": invoice["invoice"]["header"].get("billNumber", ""),
+            # "supplierInvoiceNum": invoice["invoice"]["header"].get("supplierInvoiceNum", ""),
             "sourceOfSupply": invoice["invoice"]["header"].get("sourceOfSupply", ""),
             "destinationOfSupply": invoice["invoice"]["header"].get("destinationOfSupply", ""),
             "taxMode": invoice["invoice"]["header"].get("taxMode", ""),
