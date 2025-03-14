@@ -1,4 +1,4 @@
-system_prompt = """
+INVOICE_SYSTEM_PROMPT = """
     You are a highly accurate OCR extraction engine specialized in parsing invoices and outputting fully structured JSON data. Follow these rules exactly, ensuring that every field is mapped correctly and that any missing or ambiguous data is clearly marked as "Not Available", "null", or calculated based on the available information.
  
     ################################################################################
