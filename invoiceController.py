@@ -65,13 +65,13 @@ def transform_invoice_data(purchase_bill_data: Dict[Any, Any]) -> Dict[str, Any]
             'itemCostPrice': rate,
             'itemDiscount': discount,
             'itemDiscountType': 'percentage',
-            'itemTax': tax,
-            'itemSgst': tax if tax else '0',
-            'itemCgst': tax if tax else '0',
+            "itemTax": str(float(item.get('cgst', '0')) + float(item.get('sgst', '0'))),
+            "itemSgst": item.get('sgst', '0'),
+            "itemCgst": item.get('cgst', '0'),
             'itemIgst': '0',
             'itemVat': '0',
-            'itemSgstAmount': str(float(item.get('tax_amount', '0').replace(',', '')) / 2),
-            'itemCgstAmount': str(float(item.get('tax_amount', '0').replace(',', '')) / 2),
+            "itemSgstAmount": item.get('sgst_amount', '0.0'),
+            "itemCgstAmount": item.get('cgst_amount', '0.0'),
             'taxPreference': 'tax_inclusive',
             'purchaseAccountId': ''
         }
@@ -111,7 +111,10 @@ def transform_invoice_data(purchase_bill_data: Dict[Any, Any]) -> Dict[str, Any]
                 'transactionDiscountType': 'percentage',
                 'transactionDiscount': '0',
                 'transactionDiscountAmount': '0',
-                'totalTaxAmount': str(sum(float(item.get('tax_amount', '0').replace(',', '')) for item in invoice_data.get('items', []))),
+                'totalTaxAmount': str(sum(
+                    float(item.get('cgst_amount', '0').replace(',', '')) + 
+                    float(item.get('sgst_amount', '0').replace(',', ''))
+                    for item in invoice_data.get('items', []))),
                 'itemTotalDiscount': '0',
                 'roundOffAmount': '0',
                 'grandTotal': footer.get('grand_total', '0').replace(',', ''),
