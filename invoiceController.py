@@ -66,7 +66,7 @@ def transform_invoice_data(purchase_bill_data: Dict[Any, Any]) -> Dict[str, Any]
             'itemCostPrice': rate,
             'itemDiscount': discount,
             'itemDiscountType': 'percentage',
-            "itemTax": str(float(item.get('cgst', '0')) + float(item.get('sgst', '0'))),
+            "itemTax": str(float(item.get('cgst_amount', '0').replace(',', '')) + float(item.get('sgst_amount', '0').replace(',', ''))),
             "itemSgst": item.get('sgst', '0'),
             "itemCgst": item.get('cgst', '0'),
             'itemIgst': '0',
@@ -232,24 +232,26 @@ def get_partial_invoice(invoice_id):
         }
 
         # Populate items list
-        for item in invoice["invoice"].get("items", []):
+
+        for idx, item in enumerate(invoice["invoice"].get("items", []), start=1):
             invoice_data["items"].append({
-                "itemId": item.get("itemId", ""),
-                "itemName": item.get("itemName", ""),
-                "itemHsn": item.get("itemHsn", ""),
-                "itemQuantity": item.get("itemQuantity", ""),
-                "itemCostPrice": item.get("itemCostPrice", ""),
-                "itemDiscount": item.get("itemDiscount", ""),
-                "itemDiscountType": item.get("itemDiscountType", ""),
-                "itemTax": item.get("itemTax", ""),
-                "itemSgst": item.get("itemSgst", "0"),  
-                "itemCgst": item.get("itemCgst", "0"),  
-                "itemIgst": item.get("itemIgst", "0"),
-                "itemVat": item.get("itemVat", "0"),
-                "itemSgstAmount": item.get("itemSgstAmount", "0"),  
-                "itemCgstAmount": item.get("itemCgstAmount", "0"),  
-                "taxPreference": item.get("taxPreference", ""),
-                "purchaseAccountId": item.get("purchaseAccountId", ""),
+            "itemId": str(idx),
+            "itemName": item.get("itemName", ""),
+            "itemHsn": item.get("itemHsn", ""),
+            "itemQuantity": item.get("itemQuantity", ""),
+            "itemCostPrice": item.get("itemCostPrice", ""),
+            "itemDiscount": item.get("itemDiscount", ""),
+            "itemDiscountType": item.get("itemDiscountType", ""),
+            "itemSgst": item.get("itemSgst", "0"),  
+            "itemCgst": item.get("itemCgst", "0"), 
+            # "itemTax": str(float(item.get("itemSgstAmount", "0").replace(',', '')) + float(item.get("itemCgstAmount", "0").replace(',', ''))),
+            "itemTax": item.get("itemTax", ""),
+            "itemIgst": item.get("itemIgst", "0"),
+            "itemVat": item.get("itemVat", "0"),
+            "itemSgstAmount": item.get("itemSgstAmount", "0"),  
+            "itemCgstAmount": item.get("itemCgstAmount", "0"),  
+            "taxPreference": item.get("taxPreference", ""),
+            "purchaseAccountId": item.get("purchaseAccountId", ""),
             })
 
         return invoice_data, 200
