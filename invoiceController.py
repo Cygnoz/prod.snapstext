@@ -233,9 +233,9 @@ def get_partial_invoice(invoice_id):
 
         # Populate items list
 
-        for idx, item in enumerate(invoice["invoice"].get("items", []), start=1):
+        for item in invoice["invoice"].get("items", []):
             invoice_data["items"].append({
-            "itemId": str(idx),
+            "itemId": item.get("itemId", ""),
             "itemName": item.get("itemName", ""),
             "itemHsn": item.get("itemHsn", ""),
             "itemQuantity": item.get("itemQuantity", ""),
@@ -304,13 +304,65 @@ def delete_invoice(invoice_id):
         return {"error": str(e)}, 500
 
 
+# def update_status(invoice_id, update_data):
+#     """
+#     Update invoice status and optionally other fields with proper change detection
+    
+#     Args:
+#         invoice_id (str): The ID of the invoice to update
+#         update_data (dict, optional): Additional fields to update
+        
+#     Returns:
+#         tuple: (response_dict, status_code)
+#     """
+#     try:
+#         # Check if invoice exists
+#         invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
+#         if not invoice:
+#             return {"error": "Invoice not found"}, 404
+
+#         # Default status update fields
+#         update_fields = {
+#             "status": "Reviewed",
+#             "review_date": date.today().strftime("%d-%m-%Y")
+#         }
+        
+#         # Merge additional fields if provided
+#         if update_data:
+#             update_fields.update(update_data)
+        
+#         # Check for changes before updating
+#         changes_detected = {
+#             key: update_fields[key]
+#             for key in update_fields
+#             if str(update_fields[key]) != str(invoice.get(key))
+#         }
+
+#         if not changes_detected:
+#             return {"error": "No changes detected"}, 400
+
+#         # Perform the update
+#         result = invoice_collection.update_one(
+#             {"_id": ObjectId(invoice_id)},
+#             {"$set": update_fields}
+#         )
+        
+#         if result.modified_count > 0:
+#             return {"message": "Invoice status updated successfully"}, 200
+#         else:
+#             return {"error": "Update failed - no changes applied"}, 400
+
+#     except Exception as e:
+#         return {"error": f"Update failed: {str(e)}"}, 500
+
+
 def update_status(invoice_id, update_data):
     """
-    Update invoice status and optionally other fields with proper change detection
+    Update invoice status and items with frontend-provided IDs
     
     Args:
         invoice_id (str): The ID of the invoice to update
-        update_data (dict, optional): Additional fields to update
+        update_data (dict): Contains item IDs in order and other update fields
         
     Returns:
         tuple: (response_dict, status_code)
@@ -327,18 +379,31 @@ def update_status(invoice_id, update_data):
             "review_date": date.today().strftime("%d-%m-%Y")
         }
         
-        # Merge additional fields if provided
+        # Handle items update if provided in update_data
+        if update_data and "items" in update_data:
+            existing_items = invoice["invoice"]["items"]
+            
+            # Update item IDs while preserving all other item data
+            if len(update_data["items"]) == len(existing_items):
+                updated_items = []
+                for idx, frontend_id in enumerate(update_data["items"]):
+                    updated_item = existing_items[idx].copy()
+                    updated_item["itemId"] = frontend_id
+                    updated_items.append(updated_item)
+                
+                # Add updated items to update_fields
+                update_fields["invoice.items"] = updated_items
+            else:
+                return {"error": "Number of items doesn't match"}, 400
+
+        # Merge other update fields if provided
         if update_data:
-            update_fields.update(update_data)
+            other_updates = {k: v for k, v in update_data.items() if k != "items"}
+            update_fields.update(other_updates)
         
         # Check for changes before updating
-        changes_detected = {
-            key: update_fields[key]
-            for key in update_fields
-            if str(update_fields[key]) != str(invoice.get(key))
-        }
-
-        if not changes_detected:
+        original_status = invoice.get("status", "")
+        if update_fields["status"] == original_status and "invoice.items" not in update_fields:
             return {"error": "No changes detected"}, 400
 
         # Perform the update
@@ -348,10 +413,9 @@ def update_status(invoice_id, update_data):
         )
         
         if result.modified_count > 0:
-            return {"message": "Invoice status updated successfully"}, 200
+            return {"message": "Invoice updated successfully"}, 200
         else:
             return {"error": "Update failed - no changes applied"}, 400
 
     except Exception as e:
         return {"error": f"Update failed: {str(e)}"}, 500
-
