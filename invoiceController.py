@@ -59,7 +59,7 @@ def transform_invoice_data(purchase_bill_data: Dict[Any, Any]) -> Dict[str, Any]
         tax = str(item.get('tax', '0')).replace('%', '')
         
         transformed_item = {
-            'itemId': item.get('item_id', ''),
+            'itemId': str(len(transformed_items) + 1),  
             'itemName': item.get('product_name', ''),
             'itemHsn': item.get('hsn_sac', ''), 
             'itemQuantity': quantity,
