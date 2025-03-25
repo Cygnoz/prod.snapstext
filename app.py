@@ -29,8 +29,8 @@ app = Flask(__name__)
 
 
 # CORS(app)
-# CORS(app, resources={r"/*": {"origins":"*"}})
-CORS(app, resources={r"/*": {"origins": ["https://dev.billbizz.cloud/"]}}, methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+CORS(app, resources={r"/*": {"origins":"*"}})
+# CORS(app, resources={r"/*": {"origins": ["https://dev.billbizz.cloud/"]}}, methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # Apply configuration
 app.config.from_object(Config)
@@ -47,7 +47,10 @@ encoded_username = quote_plus(username)
 encoded_password = quote_plus(password)
  
 # MongoDB connection string
-mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
+# dev
+# mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
+# sit
+mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@bb-sti.j1roi.mongodb.net/BB-STI?retryWrites=true&w=majority&appName=BB-STI"
 
 try:
     client = MongoClient(mongodb_uri)
@@ -60,8 +63,8 @@ except Exception as e:
 
 @app.route('/', methods=['GET'])
 def fn():
-    print("OCR is running")
-    return jsonify("OCR is Running")
+    print("Snaptext SIT is Running \n V1")
+    return jsonify("Snaptext SIT is Running \n V1")
 
 # Generate Token Endpoint
 @app.route('/api/generate-token', methods=['POST'])

@@ -15,7 +15,8 @@ encoded_username = quote_plus(username)
 encoded_password = quote_plus(password)
 
 # MongoDB connection string
-mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
+# mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
+mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@bb-sti.j1roi.mongodb.net/BB-STI?retryWrites=true&w=majority&appName=BB-STI"
 client = MongoClient(mongodb_uri)
 db = client.get_database('BillBizz') 
 invoice_collection = db.get_collection('invoices')  
