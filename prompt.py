@@ -46,7 +46,7 @@ INVOICE_SYSTEM_PROMPT = """
     - **Product Name (product_name):** Extract as displayed.
     - **HSN/SAC (hsn_sac):** Validate as a 4-6 digit number; if invalid or missing, mark as "Not Available".
     - **Quantity (quantity):** Ensure numeric consistency.
-    - **Rate (rate):** Extract the price per unit.
+    - **Rate (rate):**If both 'MRP' and 'Sale Rate' exist, always extract 'Sale Rate' under the correct column.
     - **Gross Amount (gross):** If not provided, calculate as (rate × quantity).
     - **Discount (discount):**  
         - If not provided, set to 0.  
