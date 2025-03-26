@@ -39,18 +39,19 @@ Config.init_app(app)
 
 load_dotenv()
 
-username = os.getenv("MONGODB_USERNAME")
-password = os.getenv("MONGODB_PASSWORD")
+# username = os.getenv("MONGODB_USERNAME")
+# password = os.getenv("MONGODB_PASSWORD")
  
 
-encoded_username = quote_plus(username)
-encoded_password = quote_plus(password)
+# encoded_username = quote_plus(username)
+# encoded_password = quote_plus(password)
  
 # MongoDB connection string
 # dev
 # mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
 # sit
-mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@bb-sti.j1roi.mongodb.net/BB-STI?retryWrites=true&w=majority&appName=BB-STI"
+# mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@bb-sti.j1roi.mongodb.net/BB-STI?retryWrites=true&w=majority&appName=BB-STI"
+mongodb_uri = os.getenv("DATABASE")
 
 try:
     client = MongoClient(mongodb_uri)
