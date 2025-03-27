@@ -20,13 +20,22 @@ INVOICE_SYSTEM_PROMPT = """
     # HEADER INFORMATION
     Extract the following fields from the header section:
     - **Invoice Number (invoice_no):**  
-    Identify using terms like "invoice no." or "invoice id".
+    # Identify using terms like "invoice no." or "invoice id".
+    # - **Invoice Date (invoice_date):**  
+    # Recognize various formats (dd/mm/yyyy, mm/dd/yyyy, yyyy-mm-dd).  
+    # - **Due Date (due_date):**  
+    # If explicitly provided, extract it. Otherwise, calculate it as 30 days from the invoice_date.
+    # - If the "due_date" is missing, calculate it as: invoice_date + 30 days.
+    # - If invoice_date is missing, default due_date to 30 days from the current date.
+        Identify using terms like "invoice no." or "invoice id".
     - **Invoice Date (invoice_date):**  
-    Recognize various formats (dd/mm/yyyy, mm/dd/yyyy, yyyy-mm-dd).  
+    Recognize various formats and convert to yyyy-mm-dd format.
+    Convert month names to numbers (e.g., "31-Mar-2021" -> "2021-03-31").
     - **Due Date (due_date):**  
-    If explicitly provided, extract it. Otherwise, calculate it as 30 days from the invoice_date.
-    - If the "due_date" is missing, calculate it as: invoice_date + 30 days.
-    - If invoice_date is missing, default due_date to 30 days from the current date.
+    Extract and convert to yyyy-mm-dd format.
+    Convert month names to numbers (e.g., "31-Mar-2021" -> "2021-03-31").
+    If missing, calculate as invoice_date + 30 days in yyyy-mm-dd format.
+    If invoice_date is missing, default due_date to current_date + 30 days in yyyy-mm-dd format.
     - **Supplier Details:**  
     - **Supplier Name (supplier_name):** Extract from the top area near the company logo or title.  
         *Do not confuse with customer/bill-to details.*  
