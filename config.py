@@ -3,5 +3,6 @@ class Config:
 
     @staticmethod
     def init_app(app):
-       
-        pass
+        """Configure the app with necessary settings."""
+        app.config['SOME_SETTING'] = 'value'
+        print("App initialized with custom settings.")

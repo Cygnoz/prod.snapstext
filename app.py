@@ -55,30 +55,30 @@ def fn():
     return jsonify("Snaptext UAT is Running \n V1")
 
 # Generate Token Endpoint
-@app.route('/api/generate-token', methods=['POST'])
-def generate_token():
-    """
-    Endpoint to generate a token for an organization
-    """
-    data = request.get_json()
-    organization_id = data.get('organizationId')
+# @app.route('/api/generate-token', methods=['POST'])
+# def generate_token():
+#     """
+#     Endpoint to generate a token for an organization
+#     """
+#     data = request.get_json()
+#     organization_id = data.get('organizationId')
     
-    if not organization_id:
-        return jsonify({"error": "Organization ID is required"}), 400
+#     if not organization_id:
+#         return jsonify({"error": "Organization ID is required"}), 400
     
-    # Generate token
-    token = TokenService.generate_token(data)
+#     # Generate token
+#     token = TokenService.generate_token(data)
     
-    return jsonify({
-        "message": "Token generated successfully",
-        "token": token
-    }), 200
+#     return jsonify({
+#         "message": "Token generated successfully",
+#         "token": token
+#     }), 200
 
 
 
 @app.route('/api/upload', methods=['POST'])
 @TokenService.verify_token
-def upload_purchase_bill():
+def upload_bill():
     try:
         # Access user details set by the verify_token decorator
         user_details = request.user  # Contains 'id', 'organizationId', 'userName'
@@ -298,14 +298,6 @@ def update_status_api(invoice_id):
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-# @app.route('/api/update_status/<invoice_id>', methods=['PUT'])
-# def update_status_api(invoice_id):
-#     try:
-#         result = update_status(invoice_id,update_data=request.json)
-#         return jsonify(result), result[1]
-#     except Exception as e:
-#         return jsonify({"error": str(e)}), 500
 
 
 def parse_json_safely(output):

@@ -8,36 +8,12 @@ from bson import ObjectId
 
 load_dotenv()
 
-# username = os.getenv("MONGODB_USERNAME")
-# password = os.getenv("MONGODB_PASSWORD")
- 
-# encoded_username = quote_plus(username)
-# encoded_password = quote_plus(password)
-
-# MongoDB connection string
-# mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
-# mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@bb-sti.j1roi.mongodb.net/BB-STI?retryWrites=true&w=majority&appName=BB-STI"
 mongodb_uri = os.getenv("DATABASE")
 client = MongoClient(mongodb_uri)
 db = client.get_database('BillBizz') 
 invoice_collection = db.get_collection('invoices')  
 
-# # Invoice add to DB
-# def add_invoice(purchase_bill_data,image,organization_id):
-#     if purchase_bill_data is None:
-#         purchase_bill_data = request.json
-#         # Add unique IDs to each item
-#     if 'items' in purchase_bill_data:
-#         for idx, item in enumerate(purchase_bill_data['items'], start=1):
-#             item['item_id'] = str(idx)  # Generate sequential ID
-#     purchase_bill_data['image'] = image
-#     purchase_bill_data['organization_id'] = organization_id
-#     purchase_bill_data['uploaded_date'] = date.today().strftime("%d-%m-%Y")
-#     purchase_bill_data['status'] = "Need review"
-#     invoice_collection.insert_one(purchase_bill_data)
-#     return {"message": "Invoice added successfully"}, 201
 
-from datetime import date
 from typing import Dict, Any, List
 
 def transform_invoice_data(purchase_bill_data: Dict[Any, Any]) -> Dict[str, Any]:
@@ -58,8 +34,7 @@ def transform_invoice_data(purchase_bill_data: Dict[Any, Any]) -> Dict[str, Any]
         rate = str(item.get('rate', '0')).replace(',', '').replace('₹', '')
         quantity = str(item.get('quantity', '0')).replace(',', '')
         discount = str(item.get('discount', '0')).replace(',', '')
-        tax = str(item.get('tax', '0')).replace('%', '')
-        
+
         transformed_item = {
             'itemId': str(len(transformed_items) + 1),  
             'itemName': item.get('product_name', ''),
@@ -188,7 +163,7 @@ def get_partial_invoice(invoice_id):
     try:
         invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)}, {"_id": 0})
         if not invoice:
-            return {"error": "Invoice not found"}, 404
+            return {"error": "No invoice found"}, 404
 
         # Mapping the required structure
         invoice_data = {
@@ -309,61 +284,9 @@ def delete_invoice(invoice_id):
         if result.deleted_count == 1:
             return {"message": "Invoice deleted successfully"}, 200
         else:
-            return {"error": "Invoice not found"}, 404
+            return {"error": "No invoice found"}, 404
     except Exception as e:
         return {"error": str(e)}, 500
-
-
-# def update_status(invoice_id, update_data):
-#     """
-#     Update invoice status and optionally other fields with proper change detection
-    
-#     Args:
-#         invoice_id (str): The ID of the invoice to update
-#         update_data (dict, optional): Additional fields to update
-        
-#     Returns:
-#         tuple: (response_dict, status_code)
-#     """
-#     try:
-#         # Check if invoice exists
-#         invoice = invoice_collection.find_one({"_id": ObjectId(invoice_id)})
-#         if not invoice:
-#             return {"error": "Invoice not found"}, 404
-
-#         # Default status update fields
-#         update_fields = {
-#             "status": "Reviewed",
-#             "review_date": date.today().strftime("%d-%m-%Y")
-#         }
-        
-#         # Merge additional fields if provided
-#         if update_data:
-#             update_fields.update(update_data)
-        
-#         # Check for changes before updating
-#         changes_detected = {
-#             key: update_fields[key]
-#             for key in update_fields
-#             if str(update_fields[key]) != str(invoice.get(key))
-#         }
-
-#         if not changes_detected:
-#             return {"error": "No changes detected"}, 400
-
-#         # Perform the update
-#         result = invoice_collection.update_one(
-#             {"_id": ObjectId(invoice_id)},
-#             {"$set": update_fields}
-#         )
-        
-#         if result.modified_count > 0:
-#             return {"message": "Invoice status updated successfully"}, 200
-#         else:
-#             return {"error": "Update failed - no changes applied"}, 400
-
-#     except Exception as e:
-#         return {"error": f"Update failed: {str(e)}"}, 500
 
 
 def update_status(invoice_id, update_data):
