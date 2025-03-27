@@ -39,18 +39,6 @@ Config.init_app(app)
 
 load_dotenv()
 
-# username = os.getenv("MONGODB_USERNAME")
-# password = os.getenv("MONGODB_PASSWORD")
- 
-
-# encoded_username = quote_plus(username)
-# encoded_password = quote_plus(password)
- 
-# MongoDB connection string
-# dev
-# mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@devbillbizz.3apqb.mongodb.net/DevBillBizz?retryWrites=true&w=majority&appName=DevBillBizz"
-# sit
-# mongodb_uri = f"mongodb+srv://{encoded_username}:{encoded_password}@bb-sti.j1roi.mongodb.net/BB-STI?retryWrites=true&w=majority&appName=BB-STI"
 mongodb_uri = os.getenv("DATABASE")
 
 try:
@@ -64,8 +52,7 @@ except Exception as e:
 
 @app.route('/', methods=['GET'])
 def fn():
-    print("Snaptext SIT is Running \n V1")
-    return jsonify("Snaptext SIT is Running \n V2")
+    return jsonify("Snaptext UAT is Running \n V1")
 
 # Generate Token Endpoint
 @app.route('/api/generate-token', methods=['POST'])
