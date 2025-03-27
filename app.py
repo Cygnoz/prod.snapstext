@@ -65,7 +65,7 @@ except Exception as e:
 @app.route('/', methods=['GET'])
 def fn():
     print("Snaptext SIT is Running \n V1")
-    return jsonify("Snaptext SIT is Running \n V1")
+    return jsonify("Snaptext SIT is Running \n V2")
 
 # Generate Token Endpoint
 @app.route('/api/generate-token', methods=['POST'])
