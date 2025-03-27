@@ -32,7 +32,7 @@ INVOICE_SYSTEM_PROMPT = """
     Recognize various formats and convert to yyyy-mm-dd format.
     Convert month names to numbers (e.g., "31-Mar-2021" -> "2021-03-31").
     - **Due Date (due_date):**  
-    Extract and convert to yyyy-mm-dd format.
+    Extract and convert to yyyy-mm-dd format. 
     Convert month names to numbers (e.g., "31-Mar-2021" -> "2021-03-31").
     If missing, calculate as invoice_date + 30 days in yyyy-mm-dd format.
     If invoice_date is missing, default due_date to current_date + 30 days in yyyy-mm-dd format.
